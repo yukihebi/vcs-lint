@@ -42,7 +42,12 @@ fn invalid_name(name: &str) -> Violation {
 
 #[test]
 fn accepts_type_and_kebab_case_name() {
-    for branch in ["feat/add-matcher", "fix/a", "feat/v2", "feat/parse-v2-header"] {
+    for branch in [
+        "feat/add-matcher",
+        "fix/a",
+        "feat/v2",
+        "feat/parse-v2-header",
+    ] {
         assert_eq!(lint(branch, &rules()), Ok(()), "{branch}");
     }
 }

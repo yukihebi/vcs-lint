@@ -25,7 +25,9 @@ impl ProtectedRule {
 /// The branch name format is not checked in this case, since renaming the
 /// branch is not the fix.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
-#[error("direct commits to `{branch}` are not allowed\n  create a branch and open a pull request instead")]
+#[error(
+    "direct commits to `{branch}` are not allowed\n  create a branch and open a pull request instead"
+)]
 pub struct Protected {
     pub branch: String,
 }

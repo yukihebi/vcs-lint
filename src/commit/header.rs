@@ -59,8 +59,10 @@ impl<'a> Header<'a> {
     /// and scope.
     fn parse(line: &'a str) -> Option<Self> {
         static PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"^(?<type>[^():\s]*)(?:\((?<scope>[^()]*)\))?:(?<spacing>\s*)(?<subject>.*)$")
-                .unwrap()
+            Regex::new(
+                r"^(?<type>[^():\s]*)(?:\((?<scope>[^()]*)\))?:(?<spacing>\s*)(?<subject>.*)$",
+            )
+            .unwrap()
         });
         let captures = PATTERN.captures(line)?;
         Some(Self {

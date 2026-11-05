@@ -51,7 +51,10 @@ impl Violation {
             }
             .into());
         };
-        Violations::collect([rules.types.check(ty).map_err(Into::into), Self::check_name(name)])
+        Violations::collect([
+            rules.types.check(ty).map_err(Into::into),
+            Self::check_name(name),
+        ])
     }
 
     fn check_name(name: &str) -> Result<(), Self> {
