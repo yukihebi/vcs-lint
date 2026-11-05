@@ -1,6 +1,7 @@
 use std::process::ExitCode;
 
 mod branch;
+mod commit;
 mod rules;
 mod violations;
 
