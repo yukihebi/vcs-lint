@@ -2,11 +2,11 @@
 name = "vcs-lint"
 version = "0.1.0-dev"
 edition = "2024"
+description = "Lint branch names and commit message headers against types and scopes given on the command line"
 
 [dependencies]
 clap = { version = "~4.6", features = ["derive"] }
-derive-where = "~1.7"
-derive_more = { version = "~2.1", features = ["display", "deref", "into_iterator"] }
+derive_more = { version = "~2.1", features = ["display"] }
 regex = "~1.13"
 thiserror = "~2.0"
 
