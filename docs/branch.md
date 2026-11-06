@@ -36,34 +36,41 @@ exec vcs-lint branch "$(git branch --show-current)" --protected main
 
 ## Options
 
-- `--type <TYPE>`: allowed types. A [list option](cli.md#list-options).
-  Defaults to `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
-  `build`, `ci`, `chore`, `revert`. Pass the same values as to
-  [`vcs-lint commit --type`](commit.md#options) to keep branches and commits
-  consistent; nothing requires them to match.
-- `--protected <BRANCH>`: branches that must not receive direct commits. A
-  [list option](cli.md#list-options). Nothing is protected by default.
+- `--type <TYPE>`: gives the [allowed types](#definitions). A
+  [list option](cli.md#list-options).
+- `--protected <BRANCH>`: gives the [protected branches](#definitions). A
+  [list option](cli.md#list-options).
 - `-h`, `--help`: print help.
-
-Values are matched exactly, including case.
 
 ## Rules
 
+### Definitions
+
+- **Allowed types**: the `--type` values, or `feat`, `fix`, `docs`, `style`,
+  `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` when none are
+  given. The same set can be given to
+  [`vcs-lint commit`](commit.md#definitions), but nothing requires it.
+- **Protected branches**: the `--protected` values. Empty when none are given.
+
+Values are matched exactly, including case.
+
 ### Protected branches
 
-A protected branch fails before its format is checked.
+A `NAME` in the protected branches fails before its format is checked.
 
-| Command | Result |
+With protected branches `main`:
+
+| `NAME` | Result |
 |---|---|
-| `vcs-lint branch main --protected main` | direct commits not allowed |
-| `vcs-lint branch feat/main --protected main` | linted as below |
+| `main` | direct commits not allowed |
+| `feat/main` | linted as below |
 
 ### Format
 
-`<type>/<name>`, where `<type>` is a `--type` value and `<name>` matches
-`[a-z][a-z0-9]*(-[a-z0-9]+)*`.
+`<type>/<name>`, where `<type>` is one of the allowed types and `<name>`
+matches `[a-z][a-z0-9]*(-[a-z0-9]+)*`.
 
-With `--type feat,fix`:
+With allowed types `feat`, `fix`:
 
 | `NAME` | Result |
 |---|---|

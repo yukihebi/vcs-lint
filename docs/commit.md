@@ -44,18 +44,23 @@ exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
 
 ## Options
 
-- `--type <TYPE>`: allowed types. A [list option](cli.md#list-options).
-  Defaults to `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
-  `build`, `ci`, `chore`, `revert`. Pass the same values as to
-  [`vcs-lint branch --type`](branch.md#options) to keep branches and commits
-  consistent; nothing requires them to match.
-- `--scope <SCOPE>`: allowed scopes. A [list option](cli.md#list-options).
-  Whether it is given switches the [header](#header) format.
+- `--type <TYPE>`: gives the [allowed types](#definitions). A
+  [list option](cli.md#list-options).
+- `--scope <SCOPE>`: gives the [allowed scopes](#definitions). A
+  [list option](cli.md#list-options).
 - `-h`, `--help`: print help.
 
-Values are matched exactly, including case.
-
 ## Rules
+
+### Definitions
+
+- **Allowed types**: the `--type` values, or `feat`, `fix`, `docs`, `style`,
+  `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` when none are
+  given. The same set can be given to
+  [`vcs-lint branch`](branch.md#definitions), but nothing requires it.
+- **Allowed scopes**: the `--scope` values. Empty when none are given.
+
+Values are matched exactly, including case.
 
 ### Finding the header
 
@@ -85,11 +90,15 @@ A message with no line left fails with `commit message is empty`.
 
 ### Header
 
-Without `--scope`, the header is `<type>: <subject>`. With `--scope`, it is
-`<type>(<scope>): <subject>`. In both, `<type>` is a `--type` value, `:` is
-followed by exactly one space, and `<subject>` is not empty.
+The header is `<type>: <subject>` when the allowed scopes are empty, and
+`<type>(<scope>): <subject>` otherwise, where:
 
-With `--type feat,fix` and no `--scope`:
+- `<type>` is one of the allowed types.
+- `<scope>` is one of the allowed scopes.
+- `:` is followed by exactly one space.
+- `<subject>` is not empty.
+
+With allowed types `feat`, `fix` and no allowed scopes:
 
 | Header | Result |
 |---|---|
@@ -102,7 +111,7 @@ With `--type feat,fix` and no `--scope`:
 | `add matcher` | malformed header |
 | `feat!: add matcher` | malformed header: `!` is not recognized |
 
-With `--type feat,fix --scope root,core`:
+With allowed types `feat`, `fix` and allowed scopes `root`, `core`:
 
 | Header | Result |
 |---|---|
