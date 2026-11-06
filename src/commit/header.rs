@@ -62,7 +62,7 @@ impl<'a> Header<'a> {
     fn parse(line: &'a str) -> Option<Self> {
         static PATTERN: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(
-                r"^(?<type>[^():\s]*)(?:\((?<scope>[^()]*)\))?:(?<spacing>\s*)(?<subject>.*)$",
+                r"^(?<type>[^():!\s]*)(?:\((?<scope>[^()]*)\))?:(?<spacing>\s*)(?<subject>.*)$",
             )
             .unwrap()
         });

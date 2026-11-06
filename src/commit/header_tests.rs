@@ -112,6 +112,7 @@ mod parse {
             "feat(core) : x",
             "feat(core: x",
             "feat(core)(x): y",
+            "feat!: x",
             "feat(core)!: x",
         ] {
             assert_eq!(Header::parse(line), None, "{line}");
