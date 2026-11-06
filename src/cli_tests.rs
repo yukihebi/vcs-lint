@@ -23,6 +23,15 @@ fn branch_rules(args: &[&str]) -> BranchRules {
     rules
 }
 
+fn commit_rules(args: &[&str]) -> CommitRules {
+    let file = message_file("feat: x\n");
+    let path = file.path().to_str().unwrap();
+    let Lint::Commit { rules, .. } = lint(&[&["commit", path], args].concat()) else {
+        panic!("not a commit lint");
+    };
+    rules
+}
+
 fn types(values: &[&str]) -> TypeRule {
     TypeRule::new(values.iter().copied().collect())
 }
@@ -134,13 +143,24 @@ fn commit_reads_message_file() {
 }
 
 #[test]
-fn commit_forbids_scopes_when_omitted() {
-    let file = message_file("feat: x\n");
-    let path = file.path().to_str().unwrap();
-    let Lint::Commit { rules, .. } = lint(&["commit", path]) else {
-        panic!("not a commit lint");
-    };
-    assert_eq!(rules.scopes, ScopeRule::Forbidden);
+fn scopes_accept_mixed_forms() {
+    assert_eq!(
+        commit_rules(&["--scope", "root,core", "--scope", "cli"]).scopes,
+        ScopeRule::Required(["root", "core", "cli"].into_iter().collect())
+    );
+}
+
+#[test]
+fn scopes_are_forbidden_when_omitted() {
+    assert_eq!(commit_rules(&[]).scopes, ScopeRule::Forbidden);
+}
+
+#[test]
+fn scopes_are_forbidden_when_every_value_is_empty() {
+    assert_eq!(
+        commit_rules(&["--scope", ",,", "--scope", ""]).scopes,
+        ScopeRule::Forbidden
+    );
 }
 
 #[test]

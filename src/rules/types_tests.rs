@@ -1,52 +1,64 @@
 use super::{TypeRule, UnknownType};
 use crate::rules::list::List;
 
-fn rule(types: &[&str]) -> TypeRule {
-    TypeRule::new(types.iter().copied().collect())
+fn list(values: &[&str]) -> List {
+    values.iter().copied().collect()
+}
+
+fn unknown(found: &str, allowed: List) -> Result<(), UnknownType> {
+    Err(UnknownType {
+        found: found.to_owned(),
+        allowed,
+    })
 }
 
 #[test]
 fn accepts_listed_type() {
-    assert_eq!(rule(&["feat", "fix"]).check("fix"), Ok(()));
+    assert_eq!(TypeRule::new(list(&["feat", "fix"])).check("fix"), Ok(()));
 }
 
 #[test]
 fn rejects_unlisted_type() {
-    let rule = rule(&["feat", "fix"]);
     assert_eq!(
-        rule.check("feature"),
-        Err(UnknownType {
-            found: "feature".to_owned(),
-            allowed: ["feat", "fix"].into_iter().collect(),
-        })
+        TypeRule::new(list(&["feat", "fix"])).check("feature"),
+        unknown("feature", list(&["feat", "fix"]))
     );
 }
 
 #[test]
 fn rejects_empty_type() {
-    let rule = rule(&["feat"]);
-    assert!(rule.check("").is_err());
+    assert_eq!(
+        TypeRule::new(list(&["feat"])).check(""),
+        unknown("", list(&["feat"]))
+    );
 }
 
 #[test]
 fn falls_back_to_default_types_when_none_are_given() {
     let rule = TypeRule::new(List::default());
     for ty in TypeRule::DEFAULT {
-        assert_eq!(rule.check(ty), Ok(()));
+        assert_eq!(rule.check(ty), Ok(()), "{ty}");
     }
-    assert!(rule.check("feature").is_err());
+    assert_eq!(
+        rule.check("feature"),
+        unknown("feature", list(&TypeRule::DEFAULT))
+    );
 }
 
 #[test]
 fn given_types_replace_defaults() {
-    assert!(rule(&["feat"]).check("fix").is_err());
+    assert_eq!(
+        TypeRule::new(list(&["feat"])).check("fix"),
+        unknown("fix", list(&["feat"]))
+    );
 }
 
 #[test]
 fn unknown_type_lists_allowed_types() {
-    let rule = rule(&["feat", "fix"]);
     assert_eq!(
-        rule.check("feature").unwrap_err().to_string(),
+        unknown("feature", list(&["feat", "fix"]))
+            .unwrap_err()
+            .to_string(),
         "unknown type `feature`\n  allowed types: feat, fix"
     );
 }
