@@ -43,7 +43,7 @@ fn rejects_missing_subcommand() {
     exit: 2
     --- stdout
     --- stderr
-    Lint branch names and commit message headers against types and scopes given on the command line
+    A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Systems
 
     Usage: vcs-lint <COMMAND>
 
