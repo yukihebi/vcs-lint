@@ -13,8 +13,14 @@ fn drops_empty_values() {
 }
 
 #[test]
+fn trims_surrounding_whitespace() {
+    let list: List = [" a", "b ", " c d ", " ", "\t"].into_iter().collect();
+    assert_eq!(list.to_string(), "a, b, c d");
+}
+
+#[test]
 fn keeps_first_position_of_repeated_value() {
-    let list: List = ["b", "a", "b", "c", "a"].into_iter().collect();
+    let list: List = ["b", "a", "b", "c", " a "].into_iter().collect();
     assert_eq!(list.to_string(), "b, a, c");
 }
 
