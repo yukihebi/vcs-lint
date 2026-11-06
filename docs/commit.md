@@ -1,54 +1,114 @@
 # `vcs-lint commit`
 
+Lints the header (first line) of a commit message file.
+
 ```
-vcs-lint commit <FILE> [--type <TYPE>]... [--scope <SCOPE>]...
+vcs-lint commit [OPTIONS] <FILE>
 ```
 
-Lints the header (first line) of the commit message in `FILE`. The file passed
-to git's `commit-msg` hook can be given as is. List options are written as
-described in [cli.md](cli.md#list-options).
+## Examples
 
-## Header format
+As a Git `commit-msg` hook, which receives the message file as its first
+argument:
 
-Whether the header has a scope depends on `--scope`:
+```sh
+#!/bin/sh
+exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
+```
 
-- Given: a scope is required and must be one of the allowed scopes. The header
-  has the form `<type>(<scope>): <subject>`.
-- Omitted: a scope is not allowed. The header has the form
-  `<type>: <subject>`.
+Without `--scope`, a header must not have a scope:
 
-In both forms:
+```
+$ cat COMMIT_EDITMSG
+feat(core): add matcher
+$ vcs-lint commit COMMIT_EDITMSG
+error: invalid commit header `feat(core): add matcher`
+  unexpected scope `core`
+    scopes are not used; remove `(core)`
+$ vcs-lint commit COMMIT_EDITMSG --scope root,core,cli
+```
 
-- `<type>` is one of the allowed types (`--type`).
-- `:` is followed by exactly one space.
-- `<subject>` is not empty.
+With `--scope`, a header must have one of them:
 
-Every violation in the header is reported together.
+```
+$ cat COMMIT_EDITMSG
+feature(parser):add matcher
+$ vcs-lint commit COMMIT_EDITMSG --scope root,core,cli
+error: invalid commit header `feature(parser):add matcher`
+  unknown type `feature`
+    allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+  unknown scope `parser`
+    allowed scopes: root, core, cli
+  expected exactly one space after `:`
+```
 
-## Finding the header
+Failing runs exit with status `1`.
 
-The commit-msg hook receives the file before git cleans it up. vcs-lint skips
-what git removes afterwards:
+## Arguments
 
-- Lines starting with `#` (git comments).
+- `<FILE>`: the commit message file, such as the one given to the
+  `commit-msg` hook. It must be UTF-8 text. A file that cannot be read fails
+  with status `1`.
+
+## Options
+
+- `--type <TYPE>`: allowed types. A [list option](cli.md#list-options).
+  Defaults to `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
+  `build`, `ci`, `chore`, `revert`. Pass the same values as to
+  [`vcs-lint branch --type`](branch.md#options) to keep branches and commits
+  consistent; nothing requires them to match.
+- `--scope <SCOPE>`: allowed scopes. A [list option](cli.md#list-options).
+  Whether it is given switches the header format; see [Header](#header).
+- `-h`, `--help`: print help.
+
+Values are matched exactly, including case.
+
+## Rules
+
+### Finding the header
+
+The `commit-msg` hook receives the file before Git cleans it up, so the
+following lines are skipped:
+
+- Lines starting with `#` (Git comments).
 - Everything from the `# ------------------------ >8 ------------------------`
   line on (the diff added by `git commit --verbose`).
 - Leading blank lines.
 
-A message with no header left fails.
+The first line left is the header. A message with no line left fails.
 
-## Messages accepted without checks
+### Messages accepted as is
 
-Messages whose header starts with one of the following pass as is:
+A header starting with one of the following passes without further checks:
 
 - `Merge ` (`Merge pull request ...`, `Merge branch ...`).
 - `fixup! `, `squash! `, `amend! ` (temporary commits created by
-  `git commit --fixup` and friends, which disappear on autosquash).
+  `git commit --fixup` and similar, which disappear on autosquash).
 
-## Current limitations
+### Header
+
+Without `--scope`, the header has the form `<type>: <subject>`, and a scope is
+not allowed.
+
+With `--scope`, the header has the form `<type>(<scope>): <subject>`, and the
+scope is required:
+
+- `<scope>` is one of the `--scope` values.
+
+In both forms:
+
+- `<type>` is one of the `--type` values.
+- `:` is followed by exactly one space.
+- `<subject>` is not empty.
+
+An unknown type, a scope problem and a subject problem are each reported, all
+at once. A header that does not fit the form at all is reported as malformed,
+with the expected form.
+
+### Current limitations
 
 - Only the header is read; the body and footers are not checked.
 - Breaking change markers are not recognized. A `!` after the type or scope
   makes the header malformed.
-- Other messages git generates, such as the default `Revert "..."`, are linted
+- Other messages Git generates, such as the default `Revert "..."`, are linted
   like any other.
