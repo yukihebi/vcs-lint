@@ -1,7 +1,7 @@
 use super::list::List;
 
 /// Whether commit headers carry a scope, and which scopes they may use.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ScopeRule {
     /// Headers must not have a scope.
     Forbidden,
@@ -37,6 +37,7 @@ impl ScopeRule {
     }
 }
 
+/// A scope, or the lack of one, that the [`ScopeRule`] does not allow.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ScopeError {
     #[error("unexpected scope `{found}`\n  scopes are not used; remove `({found})`")]

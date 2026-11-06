@@ -52,6 +52,7 @@ impl Lint {
     }
 }
 
+/// Any failure reported as `error: ...`.
 #[derive(Debug, thiserror::Error)]
 enum Error {
     #[error(transparent)]
