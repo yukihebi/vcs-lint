@@ -4,7 +4,7 @@ A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Sy
 
 ## Features
 
-- Everything can be passed as command line arguments.
+- All rules can be passed as command line arguments.
 - The file path from Git's `commit-msg` hook can be passed as-is.
 - Lints branch names of the form `<type>/<name>`,
   and rejects direct commits to protected branches such as `main`.
