@@ -40,7 +40,7 @@ exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
 ## Arguments
 
 - `<FILE>`: the commit message file. It must be UTF-8 text; a file that
-  cannot be read fails with status `1`.
+  cannot be read fails with status `2` (see [Exit status](cli.md#exit-status)).
 
 ## Options
 

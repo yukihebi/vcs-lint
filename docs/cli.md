@@ -49,6 +49,7 @@ success.
 
 | Status | Meaning |
 |---|---|
-| `0` | No violation. |
-| `1` | A violation was found, or an input could not be read. |
-| `2` | The command line is invalid, such as an unknown option, a missing argument or an argument that is not valid UTF-8. |
+| `0` | No violation, or help or the version was printed. |
+| `1` | A violation was found. |
+| `2` | An input could not be read, so it was not linted. |
+| `3` | The command line is invalid, such as an unknown option, a missing argument or an argument that is not valid UTF-8. |
