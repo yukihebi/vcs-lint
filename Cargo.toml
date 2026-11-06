@@ -4,6 +4,12 @@ version = "0.1.0-dev"
 edition = "2024"
 description = "A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Systems"
 
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
 [dependencies]
 clap = { version = "~4.6", features = ["derive"] }
 derive_more = { version = "~2.1", features = ["display"] }
