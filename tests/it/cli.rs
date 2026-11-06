@@ -4,9 +4,41 @@ use tempfile::tempdir;
 use super::Run;
 
 #[test]
+fn prints_help() {
+    assert_snapshot!(Run::new(&["--help"]), @"
+    exit: 0
+    --- stdout
+    A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Systems
+
+    Usage: vcs-lint <COMMAND>
+
+    Commands:
+      branch  Lint a branch name of the form `<type>/<name>`
+      commit  Lint the header of a commit message file
+      help    Print this message or the help of the given subcommand(s)
+
+    Options:
+      -h, --help     Print help
+      -V, --version  Print version
+    --- stderr
+    ");
+}
+
+#[test]
+fn prints_version() {
+    let run = Run::new(&["--version"]);
+    assert_eq!(run.code, Some(0));
+    assert_eq!(
+        run.stdout,
+        concat!("vcs-lint ", env!("CARGO_PKG_VERSION"), "\n")
+    );
+    assert_eq!(run.stderr, "");
+}
+
+#[test]
 fn rejects_unknown_option() {
     assert_snapshot!(Run::new(&["branch", "feat/x", "--scope", "core"]), @"
-    exit: 2
+    exit: 3
     --- stdout
     --- stderr
     error: unexpected argument '--scope' found
@@ -26,7 +58,7 @@ fn rejects_non_utf8_argument() {
 
     let branch = OsStr::from_bytes(b"feat/\xff");
     assert_snapshot!(Run::new(&[OsStr::new("branch"), branch]), @"
-    exit: 2
+    exit: 3
     --- stdout
     --- stderr
     error: invalid UTF-8 was detected in one or more arguments
@@ -40,7 +72,7 @@ fn rejects_non_utf8_argument() {
 #[test]
 fn rejects_missing_subcommand() {
     assert_snapshot!(Run::new(&[] as &[&str]), @"
-    exit: 2
+    exit: 3
     --- stdout
     --- stderr
     A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Systems
@@ -62,7 +94,7 @@ fn rejects_missing_subcommand() {
 fn rejects_unreadable_commit_message_file() {
     let dir = tempdir().unwrap();
     assert_snapshot!(Run::in_dir(dir.path(), &["commit", "missing"]), @"
-    exit: 1
+    exit: 2
     --- stdout
     --- stderr
     error: cannot read commit message file `missing`
