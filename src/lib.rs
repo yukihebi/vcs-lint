@@ -1,7 +1,7 @@
 //! Lints branch names and commit message headers against the types and scopes
 //! given on the command line.
 
-use std::process::ExitCode;
+use std::{ffi::OsString, process::ExitCode};
 
 use clap::Parser;
 
@@ -15,7 +15,7 @@ mod rules;
 mod violations;
 
 /// Runs the command line `args`, which exclude the program name.
-pub fn run(args: Vec<String>) -> ExitCode {
+pub fn run(args: Vec<OsString>) -> ExitCode {
     let cli = match Cli::try_parse_from(args) {
         Ok(cli) => cli,
         Err(err) => {

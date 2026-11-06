@@ -5,6 +5,7 @@ mod cli;
 mod commit;
 
 use std::{
+    ffi::OsStr,
     fmt::{self, Display, Formatter},
     io::Write,
     path::Path,
@@ -21,11 +22,11 @@ struct Run {
 }
 
 impl Run {
-    fn new(args: &[&str]) -> Self {
+    fn new(args: &[impl AsRef<OsStr>]) -> Self {
         Self::in_dir(Path::new(env!("CARGO_MANIFEST_DIR")), args)
     }
 
-    fn in_dir(dir: &Path, args: &[&str]) -> Self {
+    fn in_dir(dir: &Path, args: &[impl AsRef<OsStr>]) -> Self {
         let output = Command::new(env!("CARGO_BIN_EXE_vcs-lint"))
             .args(args)
             .current_dir(dir)
