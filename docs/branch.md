@@ -23,7 +23,10 @@ error: invalid branch name `feature/Add_Matcher`
     expected: lowercase kebab-case starting with a letter, e.g. `add-matcher`
 ```
 
-As a Git `pre-commit` hook, linting the current branch:
+As a Git `pre-commit` hook, here given the name printed by
+`git branch --show-current`. Any command that prints the branch name can be
+used instead; see [Current branch](#current-branch) for what such commands
+give when there is no branch.
 
 ```sh
 #!/bin/sh
@@ -32,7 +35,8 @@ exec vcs-lint branch "$(git branch --show-current)" --protected main
 
 ## Arguments
 
-- `<NAME>`: the branch name to lint.
+- `<NAME>`: the branch name to lint, used as given. vcs-lint does not ask Git
+  for the current branch.
 
 ## Options
 
@@ -84,3 +88,33 @@ With allowed types `feat`, `fix`:
 | `feat/add--matcher`, `feat/add-` | invalid name: empty word between `-` |
 | `feat/add/matcher` | invalid name: second `/` |
 | `feature/Add_Matcher` | unknown type and invalid name, reported together |
+
+## Current branch
+
+On a detached HEAD, such as after `git checkout --detach`, there is no current
+branch, and common commands print:
+
+| Command | Output on a detached HEAD |
+|---|---|
+| `git branch --show-current` | an empty string |
+| `git rev-parse --abbrev-ref HEAD` | `HEAD` |
+
+Neither has a `/`, so either fails as a missing type prefix:
+
+```
+$ vcs-lint branch "$(git branch --show-current)"
+error: invalid branch name ``
+  missing type prefix
+    expected: <type>/<name>
+    allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+
+$ vcs-lint branch "$(git rev-parse --abbrev-ref HEAD)"
+error: invalid branch name `HEAD`
+  missing type prefix
+    expected: <type>/<name>
+    allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+```
+
+A command substitution is also empty when the command itself fails, such as
+outside a repository. The shell still runs vcs-lint, which then reports the
+empty name after Git's own error.
