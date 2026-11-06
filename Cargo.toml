@@ -2,7 +2,7 @@
 name = "vcs-lint"
 version = "0.1.0-dev"
 edition = "2024"
-description = "Lint branch names and commit message headers against types and scopes given on the command line"
+description = "A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Systems"
 
 [dependencies]
 clap = { version = "~4.6", features = ["derive"] }
