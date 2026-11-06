@@ -22,7 +22,7 @@ fn reports_header_with_its_violations() {
         lint("# comment\nfeat:\n", &rules()),
         Err(Error::Invalid {
             header: "feat:".to_owned(),
-            violations: Violations(vec![Violation::EmptySubject]),
+            violations: Violations::from(Violation::EmptySubject),
         })
     );
 }

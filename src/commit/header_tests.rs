@@ -38,7 +38,7 @@ fn scoped() -> CommitRules {
 }
 
 fn violations(violations: Vec<Violation>) -> Result<(), Violations<Violation>> {
-    Err(Violations(violations))
+    Violations::collect(violations.into_iter().map(Err))
 }
 
 fn unknown_type(found: &str) -> Violation {

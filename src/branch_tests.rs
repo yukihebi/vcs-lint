@@ -23,7 +23,7 @@ fn rules() -> BranchRules {
 fn invalid(branch: &str, violations: Vec<Violation>) -> Result<(), Error> {
     Err(Error::Invalid {
         branch: branch.to_owned(),
-        violations: Violations(violations),
+        violations: Violations::collect(violations.into_iter().map(Err)).unwrap_err(),
     })
 }
 

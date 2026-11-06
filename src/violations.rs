@@ -1,10 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
-/// Every violation found in one input, reported together.
-///
-/// Never empty when built by [`Violations::collect`].
+/// Every violation found in one input, reported together. Never empty.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Violations<V>(pub Vec<V>);
+pub struct Violations<V>(Vec<V>);
 
 impl<V> Violations<V> {
     /// Gathers the failures among `results`, failing if there is any.
@@ -28,18 +26,12 @@ impl<V> From<V> for Violations<V> {
 /// names the input.
 impl<V: Display> Display for Violations<V> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let text = self
-            .0
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("\n");
-        let mut lines = text.lines();
-        if let Some(first) = lines.next() {
-            write!(f, "  {first}")?;
-        }
-        for line in lines {
-            write!(f, "\n  {line}")?;
+        let mut separator = "";
+        for violation in &self.0 {
+            for line in violation.to_string().lines() {
+                write!(f, "{separator}  {line}")?;
+                separator = "\n";
+            }
         }
         Ok(())
     }
