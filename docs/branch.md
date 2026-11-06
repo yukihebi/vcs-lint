@@ -23,14 +23,14 @@ error: invalid branch name `feature/Add_Matcher`
     expected: lowercase kebab-case starting with a letter, e.g. `add-matcher`
 ```
 
-As a Git `pre-commit` hook, linting the current branch. `git symbolic-ref`
-fails on a detached HEAD, which stops the hook with Git's own error;
-`git branch --show-current` is not recommended, as it prints nothing both on a
-detached HEAD and when it fails.
+As a Git `pre-commit` hook, linting the current branch. Choose the `branch=`
+line by what a detached HEAD should do. `git branch --show-current` is not
+recommended, as it prints nothing both on a detached HEAD and when it fails.
 
 ```sh
 #!/bin/sh
-branch=$(git symbolic-ref --short HEAD) || exit
+branch=$(git symbolic-ref --short HEAD) || exit     # a detached HEAD stops the hook
+# branch=$(git rev-parse --abbrev-ref HEAD) || exit # a detached HEAD is given as `HEAD`
 exec vcs-lint branch "$branch" --protected main
 ```
 
