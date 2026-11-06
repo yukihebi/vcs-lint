@@ -19,9 +19,27 @@ fn rejects_unknown_option() {
     ");
 }
 
+#[cfg(unix)]
+#[test]
+fn rejects_non_utf8_argument() {
+    use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+
+    let branch = OsStr::from_bytes(b"feat/\xff");
+    assert_snapshot!(Run::new(&[OsStr::new("branch"), branch]), @"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: invalid UTF-8 was detected in one or more arguments
+
+    Usage: vcs-lint branch [OPTIONS] <NAME>
+
+    For more information, try '--help'.
+    ");
+}
+
 #[test]
 fn rejects_missing_subcommand() {
-    assert_snapshot!(Run::new(&[]), @"
+    assert_snapshot!(Run::new(&[] as &[&str]), @"
     exit: 2
     --- stdout
     --- stderr
