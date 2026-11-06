@@ -1,7 +1,7 @@
 use super::list::List;
 
 /// Branches that must not receive direct commits.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct ProtectedRule(List);
 
 impl ProtectedRule {
@@ -21,9 +21,6 @@ impl ProtectedRule {
 }
 
 /// A direct commit to a protected branch.
-///
-/// The branch name format is not checked in this case, since renaming the
-/// branch is not the fix.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 #[error(
     "direct commits to `{branch}` are not allowed\n  create a branch and open a pull request instead"

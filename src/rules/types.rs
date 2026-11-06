@@ -1,7 +1,7 @@
 use super::list::List;
 
 /// Types that branch names and commit headers may start with.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct TypeRule(List);
 
 impl TypeRule {

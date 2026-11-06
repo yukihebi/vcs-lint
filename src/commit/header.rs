@@ -13,6 +13,7 @@ use crate::{
     violations::Violations,
 };
 
+/// Checks a single header line against `rules`.
 pub fn lint(header: &str, rules: &CommitRules) -> Result<(), Violations<Violation>> {
     match Header::parse(header) {
         Some(header) => header.check(rules),
@@ -20,6 +21,7 @@ pub fn lint(header: &str, rules: &CommitRules) -> Result<(), Violations<Violatio
     }
 }
 
+/// A rule broken by a commit header.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Violation {
     #[error("malformed header\n  expected: {expected}")]

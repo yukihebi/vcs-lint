@@ -20,6 +20,7 @@ pub fn lint(message: &str, rules: &CommitRules) -> Result<(), Error> {
     }
 }
 
+/// Why a commit message was rejected.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
     #[error("commit message is empty")]
