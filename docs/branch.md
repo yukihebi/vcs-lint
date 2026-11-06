@@ -23,12 +23,16 @@ error: invalid branch name `feature/Add_Matcher`
     expected: lowercase kebab-case starting with a letter, e.g. `add-matcher`
 ```
 
-The first run succeeds silently; the others exit with status `1`.
+As a Git `pre-commit` hook, linting the current branch:
+
+```sh
+#!/bin/sh
+exec vcs-lint branch "$(git branch --show-current)" --protected main
+```
 
 ## Arguments
 
-- `<NAME>`: the branch name to lint, such as the output of
-  `git branch --show-current`.
+- `<NAME>`: the branch name to lint.
 
 ## Options
 
@@ -47,17 +51,29 @@ Values are matched exactly, including case.
 
 ### Protected branches
 
-When `NAME` is one of the `--protected` branches, the lint fails with advice
-to create a branch and open a pull request. The format below is not checked in
-that case.
+A protected branch fails before its format is checked.
+
+| Command | Result |
+|---|---|
+| `vcs-lint branch main --protected main` | direct commits not allowed |
+| `vcs-lint branch feat/main --protected main` | linted as below |
 
 ### Format
 
-Otherwise, `NAME` must have the form `<type>/<name>`:
+`<type>/<name>`, where `<type>` is a `--type` value and `<name>` matches
+`[a-z][a-z0-9]*(-[a-z0-9]+)*`.
 
-- `<type>` is one of the `--type` values.
-- `<name>` is lowercase kebab-case starting with a letter:
-  `[a-z][a-z0-9]*(-[a-z0-9]+)*`. It cannot contain another `/`.
+With `--type feat,fix`:
 
-An unknown type and an invalid name are reported together. A name without `/`
-is reported as missing its type prefix.
+| `NAME` | Result |
+|---|---|
+| `feat/add-matcher` | OK |
+| `fix/v2` | OK |
+| `add-matcher` | missing type prefix: no `/` |
+| `feature/add-matcher` | unknown type `feature` |
+| `feat/Add-matcher` | invalid name: uppercase letter |
+| `feat/add_matcher` | invalid name: `_` |
+| `feat/2-add` | invalid name: starts with a digit |
+| `feat/add--matcher`, `feat/add-` | invalid name: empty word between `-` |
+| `feat/add/matcher` | invalid name: second `/` |
+| `feature/Add_Matcher` | unknown type and invalid name, reported together |
