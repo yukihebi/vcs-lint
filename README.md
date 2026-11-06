@@ -27,8 +27,8 @@ vcs-lint commit .git/COMMIT_EDITMSG --scope root,cli
 vcs-lint commit .git/COMMIT_EDITMSG --scope root,$(ls crates | paste -sd, -)
 ```
 
-Empty values (`a,,b`, a trailing comma) are ignored, and a list whose values
-are all empty counts as omitted.
+Whitespace around each value is trimmed, empty values (`a,,b`, a trailing
+comma) are ignored, and a list whose values are all empty counts as omitted.
 
 ### Common options
 
@@ -68,9 +68,6 @@ The header must also satisfy:
 - `:` is followed by exactly one space.
 - The subject is not empty.
 
-Breaking change markers (`!` after the type, `BREAKING CHANGE:` footers) are
-not supported.
-
 Before finding the header, vcs-lint skips what git removes from the file after
 the hook runs:
 
@@ -86,7 +83,8 @@ checks:
 - `fixup! `, `squash! `, `amend! ` (temporary commits created by
   `git commit --fixup` and friends, which disappear on autosquash).
 
-A message with no header left fails.
+Other messages git generates, such as the default `Revert "..."`, are linted
+like any other. A message with no header left fails.
 
 ## Output
 
@@ -107,6 +105,17 @@ error: invalid commit header `feature(parser):add matcher`
 error: direct commits to `main` are not allowed
   create a branch and open a pull request instead
 ```
+
+## Not supported
+
+These are outside the scope of vcs-lint by design:
+
+- Configuration files. Every rule comes from command line options.
+- Detecting modules or scopes from the repository layout.
+- Checking the commit message body or footers.
+- Breaking change markers. A `!` after the type or scope makes the header
+  malformed, and `BREAKING CHANGE:` footers are body text that is not read.
+- Branch name formats other than `<type>/<name>`.
 
 ## Exit status
 
