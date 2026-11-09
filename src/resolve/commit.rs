@@ -4,10 +4,10 @@ mod message;
 
 use std::{fs, path::PathBuf};
 
-use super::{list::ListRawValues, resolve_types};
+use super::{list::ListRawValues, matchable::ListRequirement, resolve_types};
 use crate::{
     cli::{TypeDefaultsClapMode, commit::CommitScopeClapMode},
-    lint::commit::{CommitLintRules, CommitLintTarget, CommitScopeRule},
+    lint::commit::{CommitLintRules, CommitLintTarget, CommitScopeRule, header::CommitHeader},
     report::{commit::CommitResolveError, list::ListName},
 };
 use message::CommitMessage;
@@ -23,6 +23,20 @@ pub struct CommitRawConfig {
 }
 
 impl CommitRawConfig {
+    /// What the allowed types must meet: a header is found among the lines
+    /// that are not comments, and is then split into its parts.
+    const TYPES: ListRequirement = ListRequirement {
+        list: ListName::Types,
+        is_matchable: |ty| CommitHeader::is_matchable_type(ty) && !CommitMessage::is_comment(ty),
+        wording: "a type cannot contain `(`, `)`, `:`, `!` or whitespace, nor start with `#`",
+    };
+
+    const SCOPES: ListRequirement = ListRequirement {
+        list: ListName::Scopes,
+        is_matchable: CommitHeader::is_matchable_scope,
+        wording: "a scope cannot contain a line break, and its parentheses must be balanced",
+    };
+
     /// Resolves the rules before reading the message file.
     pub fn resolve(self) -> Result<(CommitLintTarget, CommitLintRules), CommitResolveError> {
         let Self {
@@ -36,6 +50,7 @@ impl CommitRawConfig {
             types: resolve_types(types, type_defaults)?,
             scopes: Self::resolve_scopes(scope_mode, scopes)?,
         };
+        Self::check_matchable(&rules)?;
         let text = fs::read_to_string(&file)
             .map_err(|source| CommitResolveError::Unreadable { file, source })?;
         let target = CommitMessage(&text).resolve();
@@ -60,6 +75,27 @@ impl CommitRawConfig {
                 Ok(CommitScopeRule::Required(allowed))
             }
             CommitScopeClapMode::Optional => Ok(CommitScopeRule::Optional(allowed)),
+        }
+    }
+
+    /// Fails when the rules hold values no header can match, reporting every
+    /// list holding some. Scopes are not checked where headers must not have
+    /// one.
+    fn check_matchable(rules: &CommitLintRules) -> Result<(), CommitResolveError> {
+        let unmatchable: Vec<_> = [
+            Self::TYPES.find_unmatchable(&rules.types),
+            rules
+                .scopes
+                .allowed()
+                .and_then(|allowed| Self::SCOPES.find_unmatchable(allowed)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        if unmatchable.is_empty() {
+            Ok(())
+        } else {
+            Err(CommitResolveError::Unmatchable(unmatchable))
         }
     }
 }

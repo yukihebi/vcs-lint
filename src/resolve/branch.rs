@@ -1,6 +1,6 @@
 //! Interpretation of the `branch` command.
 
-use super::{list::ListRawValues, resolve_types};
+use super::{list::ListRawValues, matchable::ListRequirement, resolve_types};
 use crate::{
     cli::{TypeDefaultsClapMode, branch::BranchDetachedClapRule},
     lint::branch::{BranchDetachedRule, BranchLintRules, BranchLintTarget},
@@ -18,6 +18,18 @@ pub struct BranchRawConfig {
 }
 
 impl BranchRawConfig {
+    const TYPES: ListRequirement = ListRequirement {
+        list: ListName::Types,
+        is_matchable: BranchLintRules::is_matchable_type,
+        wording: "a type cannot contain `/` or a line break",
+    };
+
+    const PROTECTED: ListRequirement = ListRequirement {
+        list: ListName::Protected,
+        is_matchable: |_| true,
+        wording: "a branch name cannot contain a line break",
+    };
+
     /// Without any protected branch left, no branch is protected; without a
     /// rule for a detached HEAD, a detached HEAD is allowed.
     pub fn resolve(self) -> Result<(BranchLintTarget, BranchLintRules), BranchResolveError> {
@@ -27,6 +39,7 @@ impl BranchRawConfig {
             protected: self.protected.resolve(ListName::Protected, &[])?,
             detached: Self::resolve_detached(self.detached),
         };
+        Self::check_matchable(&rules)?;
         Ok((target, rules))
     }
 
@@ -44,6 +57,23 @@ impl BranchRawConfig {
         match rule {
             None | Some(BranchDetachedClapRule::Allow) => BranchDetachedRule::Allowed,
             Some(BranchDetachedClapRule::Deny) => BranchDetachedRule::Forbidden,
+        }
+    }
+
+    /// Fails when the rules hold values no branch name can match, reporting
+    /// every list holding some.
+    fn check_matchable(rules: &BranchLintRules) -> Result<(), BranchResolveError> {
+        let unmatchable: Vec<_> = [
+            Self::TYPES.find_unmatchable(&rules.types),
+            Self::PROTECTED.find_unmatchable(&rules.protected),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        if unmatchable.is_empty() {
+            Ok(())
+        } else {
+            Err(BranchResolveError::Unmatchable(unmatchable))
         }
     }
 }

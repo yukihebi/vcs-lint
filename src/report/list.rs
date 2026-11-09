@@ -1,4 +1,5 @@
-//! Why a list option cannot be composed, worded for the user.
+//! Why a list option cannot be composed or holds values nothing can match,
+//! worded for the user.
 
 use std::fmt::{self, Display, Formatter};
 
@@ -69,5 +70,41 @@ impl Display for ListResolveError {
                 list.option()
             ),
         }
+    }
+}
+
+/// Values of a list that nothing linted can match, rendered as lines indented
+/// under the error holding them.
+#[derive(Debug, PartialEq, Eq)]
+pub struct UnmatchableList {
+    pub list: ListName,
+    pub values: NameSet,
+    /// What every value must meet, worded as a sentence.
+    pub requirement: &'static str,
+}
+
+impl UnmatchableList {
+    /// Renders `lists` one after another, each starting on a new line.
+    pub fn render_all(lists: &[Self]) -> String {
+        lists.iter().map(|list| format!("\n{list}")).collect()
+    }
+}
+
+/// Values are quoted with their line breaks escaped, as they may hold any
+/// character.
+impl Display for UnmatchableList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let values: Vec<String> = self
+            .values
+            .iter()
+            .map(|value| format!("{value:?}"))
+            .collect();
+        write!(
+            f,
+            "  {}: {}\n    {}",
+            self.list.values(),
+            values.join(", "),
+            self.requirement
+        )
     }
 }

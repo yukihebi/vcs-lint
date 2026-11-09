@@ -150,6 +150,29 @@ fn fails_on_excluding_branch_that_is_not_protected() {
 }
 
 #[test]
+fn fails_on_values_no_branch_name_can_match() {
+    let run = Run::new(&[
+        "branch",
+        "feat/x",
+        "--type",
+        "feat,fix/hot",
+        "--protected",
+        "main,ma\nin",
+    ]);
+    assert_status!(run, RunStatus::BranchResolveError(_));
+    assert_snapshot!(run, @r#"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: no branch name can match these values
+      allowed types: "fix/hot"
+        a type cannot contain `/` or a line break
+      protected branches: "ma\nin"
+        a branch name cannot contain a line break
+    "#);
+}
+
+#[test]
 fn fails_without_types() {
     let run = Run::new(&["branch", "feat/x", "--type-defaults", "never"]);
     assert_status!(run, RunStatus::BranchResolveError(_));

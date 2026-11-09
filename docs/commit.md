@@ -76,6 +76,16 @@ exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
 
 Values are matched exactly, including case.
 
+Values no header can match fail with status `2` (see
+[Values nothing can match](cli.md#values-nothing-can-match)):
+
+- An allowed type cannot contain `(`, `)`, `:`, `!` or whitespace, nor start
+  with `#`, which starts a comment line.
+- An allowed scope cannot contain a line break, and its parentheses must be
+  balanced, as in `core(unix)`.
+
+Allowed scopes are not checked when scopes are forbidden, as they are ignored.
+
 ### Finding the header
 
 The first line left after skipping the following is the header:
@@ -127,7 +137,8 @@ A malformed header is reported with the form of the mode, written
 The header takes the form of the [scope mode](#scope-mode), where:
 
 - `<type>` is one of the allowed types.
-- `<scope>` is one of the allowed scopes.
+- `<scope>` is one of the allowed scopes. It ends at the `)` closing its `(`,
+  so it may hold balanced parentheses.
 - `:` is followed by exactly one space.
 - `<subject>` is not empty.
 
@@ -154,6 +165,8 @@ scopes required:
 | `feat: add matcher` | missing scope |
 | `feat(parser): add matcher` | unknown scope `parser` |
 | `feat(): add matcher` | unknown scope (empty) |
+| `feat(core(unix)): add matcher` | unknown scope `core(unix)` |
+| `feat(core: add matcher` | malformed header: `(` is not closed |
 | `feature(parser):add matcher` | unknown type, unknown scope and spacing, reported together |
 
 With allowed types `feat`, `fix`, allowed scopes `root`, `core` and

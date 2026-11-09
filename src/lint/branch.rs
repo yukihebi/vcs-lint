@@ -35,6 +35,10 @@ pub enum BranchDetachedRule {
 }
 
 impl BranchLintRules {
+    /// Separates the type of a branch name from its name, at its first
+    /// occurrence.
+    const TYPE_SEPARATOR: char = '/';
+
     /// A detached HEAD is checked against the detached HEAD rule alone.
     pub fn lint(&self, target: &BranchLintTarget) -> Result<(), BranchLintError> {
         match target {
@@ -50,7 +54,7 @@ impl BranchLintRules {
                 branch: branch.to_owned(),
             });
         }
-        let Some((ty, name)) = branch.split_once('/') else {
+        let Some((ty, name)) = branch.split_once(Self::TYPE_SEPARATOR) else {
             return Err(BranchLintError::Malformed {
                 branch: branch.to_owned(),
                 allowed: self.types.clone(),
@@ -64,6 +68,12 @@ impl BranchLintRules {
                 name,
             }),
         }
+    }
+
+    /// Whether a branch name can have `ty` as its type, which holds when `ty`
+    /// lacks the separator ending a type.
+    pub fn is_matchable_type(ty: &str) -> bool {
+        !ty.contains(Self::TYPE_SEPARATOR)
     }
 
     fn lint_type(&self, ty: &str) -> Option<BranchTypeViolation> {
