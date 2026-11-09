@@ -8,6 +8,7 @@ pub mod matchable;
 
 use crate::{
     cli::TypeDefaultsClapMode,
+    git::Git,
     name_set::NameSet,
     report::list::{ListName, ListResolveError},
 };
@@ -24,14 +25,15 @@ pub const DEFAULT_TYPES: [&str; 11] = [
 fn resolve_types(
     types: ListRawValues,
     mode: Option<TypeDefaultsClapMode>,
+    git: &Git,
 ) -> Result<NameSet, ListResolveError> {
     let with_defaults = match mode.unwrap_or(TypeDefaultsClapMode::Auto) {
-        TypeDefaultsClapMode::Auto => types.given.is_none(),
+        TypeDefaultsClapMode::Auto => !types.is_given(),
         TypeDefaultsClapMode::Always => true,
         TypeDefaultsClapMode::Never => false,
     };
     let defaults: &[&str] = if with_defaults { &DEFAULT_TYPES } else { &[] };
-    let allowed = types.resolve(ListName::Types, defaults)?;
+    let allowed = types.resolve(ListName::Types, defaults, git)?;
     if allowed.is_empty() {
         Err(ListResolveError::Empty {
             list: ListName::Types,

@@ -35,12 +35,27 @@ impl GitCommand {
     const ABSENT: i32 = 1;
 
     /// A command running `program` with `args`.
-    pub fn new(program: &OsStr, args: &[&str]) -> Self {
+    pub fn new(program: &OsStr, args: &[impl AsRef<OsStr>]) -> Self {
         let mut command = Command::new(program);
         command.args(args).envs(Self::ENV).stdin(Stdio::null());
+        let written: Vec<_> = args
+            .iter()
+            .map(|arg| arg.as_ref().to_string_lossy())
+            .collect();
         Self {
             command,
-            written: format!("git {}", args.join(" ")),
+            written: format!("git {}", written.join(" ")),
+        }
+    }
+
+    /// Runs a command that must succeed, reading its standard output with
+    /// `parse`, which gives `None` for output not in the expected form.
+    pub fn read<T>(self, parse: impl FnOnce(&[u8]) -> Option<T>) -> Result<T, GitError> {
+        let (written, output) = self.output()?;
+        if output.status.success() {
+            parse(&output.stdout).ok_or_else(|| GitError::unexpected_output(written, &output))
+        } else {
+            Err(GitError::failed(written, &output))
         }
     }
 

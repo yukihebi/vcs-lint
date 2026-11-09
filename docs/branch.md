@@ -44,6 +44,9 @@ exec vcs-lint branch --protected main --detached deny
 
 - `--type <TYPE>`: adds to the [allowed types](#definitions). A
   [list option](cli.md#list-options).
+- `--type-dir <DIR>`: adds the directories under `DIR` to the
+  [allowed types](#definitions) (see [Directories](cli.md#directories)). A
+  [list option](cli.md#list-options).
 - `--type-exclude <TYPE>`: excludes from the [allowed types](#definitions). A
   [list option](cli.md#list-options).
 - `--type-defaults <MODE>`: when the default types are included in the
@@ -51,6 +54,9 @@ exec vcs-lint branch --protected main --detached deny
   [Defaults](cli.md#defaults)). `auto` when not given.
 - `--protected <BRANCH>`: adds to the [protected branches](#definitions). A
   [list option](cli.md#list-options).
+- `--protected-dir <DIR>`: adds the directories under `DIR` to the
+  [protected branches](#definitions) (see [Directories](cli.md#directories)).
+  A [list option](cli.md#list-options).
 - `--protected-exclude <BRANCH>`: excludes from the
   [protected branches](#definitions). A [list option](cli.md#list-options).
 - `--detached <RULE>`: whether a [detached HEAD](#detached-head) passes,
@@ -84,14 +90,15 @@ error: `git symbolic-ref -q HEAD` failed with exit status: 128
 
 - **Allowed types**: [composed](cli.md#composition) from the default types
   `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
-  `chore`, `revert`, the `--type` values and the `--type-exclude` values. By
-  default, the default types are included only when no `--type` is given (see
+  `chore`, `revert`, the `--type` values, the `--type-dir` directories and the
+  `--type-exclude` values. By default, the default types are included only when
+  neither `--type` nor `--type-dir` is given (see
   [Defaults](cli.md#defaults)). When no type is left, nothing could pass, so the
   command fails with status `2`. The same set can be given to
   [`vcs-lint commit`](commit.md#definitions), but nothing requires it.
 - **Protected branches**: [composed](cli.md#composition) from the
-  `--protected` values and the `--protected-exclude` values. Empty when none
-  are left.
+  `--protected` values, the `--protected-dir` directories and the
+  `--protected-exclude` values. Empty when none are left.
 
 Values are matched exactly, including case.
 

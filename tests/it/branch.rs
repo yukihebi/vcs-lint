@@ -207,6 +207,9 @@ fn prints_help() {
               Allowed type, given as repeated flags or comma-separated values
               [defaults: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
 
+          --type-dir <DIR>
+              Directory whose subdirectories in the git index are allowed types, given as repeated flags or comma-separated values
+
           --type-exclude <TYPE>
               Type excluded from the allowed types, given as repeated flags or comma-separated values
 
@@ -221,6 +224,9 @@ fn prints_help() {
 
           --protected <BRANCH>
               Branch that must not be committed to directly, given as repeated flags or comma-separated values
+
+          --protected-dir <DIR>
+              Directory whose subdirectories in the git index are protected branches, given as repeated flags or comma-separated values
 
           --protected-exclude <BRANCH>
               Branch excluded from the protected branches, given as repeated flags or comma-separated values

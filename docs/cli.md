@@ -50,7 +50,39 @@ error: invalid value '' for '--scope <SCOPE>': every value is empty
 ```
 
 Adding a fixed value to the same flag, as in `--scope root,$(…)`, keeps the
-flag valid when the substitution is empty.
+flag valid when the substitution is empty. To add the directories under a
+directory, use its [directory option](#directories) instead.
+
+### Directories
+
+Each list option comes with a directory option, named after it with `-dir`,
+such as `--scope-dir` for `--scope`, which adds the names of the directories
+directly under each `DIR` given to it. A directory option is a list option
+itself, and each `DIR` is relative to the current directory:
+
+```sh
+vcs-lint commit COMMIT_EDITMSG --scope root --scope-dir crates   # root and the packages under crates
+```
+
+The directories are read from the Git index, as `git ls-files` lists files: a
+directory counts when it holds a committed or staged file at any depth, and a
+submodule counts as a directory. A package added in the commit being linted is
+then included, while untracked directories, such as build outputs, are not.
+Hidden directories such as `.github` count as well; exclude unwanted ones with
+the [exclusion option](#composition). The names are used as they are, ordered
+by their bytes.
+
+A `DIR` that does not exist, is not a directory, or is outside the work tree of
+the Git repository found from the current directory fails with status `2`:
+
+```
+$ vcs-lint commit COMMIT_EDITMSG --scope-dir packages
+error: cannot read the directories under `packages` for `--scope-dir`
+  no such directory
+```
+
+A `DIR` with no such directory adds no values, but still counts as giving
+values (see [Composition](#composition)).
 
 ### Composition
 
@@ -62,11 +94,13 @@ The values of the list are composed as follows, whatever the order of the
 options:
 
 1. The defaults of the list, when they are [included](#defaults).
-2. Then the values given to the list option, without repeating a value.
+2. Then the values given to the list option, then the names of the directories
+   given to its [directory option](#directories), without repeating a value.
 3. Without the values given to the exclusion option.
 
-Values count as given once the list option appears; the exclusion option
-alone does not give values. Each command decides what an empty list means.
+Values count as given once the list option or its directory option appears,
+even if no value comes of it; the exclusion option alone does not give values.
+Each command decides what an empty list means.
 
 Excluding a value that is not in the list fails with status `2`:
 

@@ -8,6 +8,7 @@ use tempfile::NamedTempFile;
 use super::CommitRawConfig;
 use crate::{
     cli::{TypeDefaultsClapMode, commit::CommitScopeClapMode},
+    git::Git,
     lint::commit::{CommitLintRules, CommitLintTarget, CommitScopeRule},
     name_set::NameSet,
     report::{
@@ -24,6 +25,7 @@ fn strings(values: &[&str]) -> Vec<String> {
 fn raw(given: Option<&[&str]>, excluded: &[&str]) -> ListRawValues {
     ListRawValues {
         given: given.map(strings),
+        dirs: None,
         excluded: strings(excluded),
     }
 }
@@ -53,14 +55,14 @@ fn config(file: PathBuf, scopes: ListRawValues) -> CommitRawConfig {
 }
 
 fn read_error(file: PathBuf) -> (PathBuf, io::Error) {
-    match config(file, ListRawValues::default()).resolve() {
+    match config(file, ListRawValues::default()).resolve(&Git) {
         Err(CommitResolveError::Unreadable { file, source }) => (file, source),
         other => panic!("{other:?}"),
     }
 }
 
 fn unmatchable(config: CommitRawConfig) -> Vec<UnmatchableList> {
-    match config.resolve() {
+    match config.resolve(&Git) {
         Err(CommitResolveError::Unmatchable(lists)) => lists,
         other => panic!("{other:?}"),
     }
@@ -77,7 +79,7 @@ fn reads_header_from_message_file() {
         scope_mode: None,
     };
     assert_eq!(
-        config.resolve().unwrap(),
+        config.resolve(&Git).unwrap(),
         (
             CommitLintTarget::Header("feat(core): x".to_owned()),
             CommitLintRules {
@@ -92,7 +94,7 @@ fn reads_header_from_message_file() {
 fn forbids_scopes_and_allows_default_types_when_omitted() {
     let file = message_file(b"feat: x\n");
     let (_, rules) = config(file.path().to_owned(), ListRawValues::default())
-        .resolve()
+        .resolve(&Git)
         .unwrap();
     assert_eq!(
         rules,
@@ -107,12 +109,12 @@ fn forbids_scopes_and_allows_default_types_when_omitted() {
 fn auto_requires_scopes_only_when_given() {
     for mode in [None, Some(CommitScopeClapMode::Auto)] {
         assert_eq!(
-            CommitRawConfig::resolve_scopes(mode, given(&["core", "cli"])).unwrap(),
+            CommitRawConfig::resolve_scopes(mode, given(&["core", "cli"]), &Git).unwrap(),
             CommitScopeRule::Required(set(&["core", "cli"])),
             "{mode:?}"
         );
         assert_eq!(
-            CommitRawConfig::resolve_scopes(mode, ListRawValues::default()).unwrap(),
+            CommitRawConfig::resolve_scopes(mode, ListRawValues::default(), &Git).unwrap(),
             CommitScopeRule::Forbidden,
             "{mode:?}"
         );
@@ -124,7 +126,8 @@ fn required_and_optional_allow_given_scopes() {
     assert_eq!(
         CommitRawConfig::resolve_scopes(
             Some(CommitScopeClapMode::Required),
-            given(&["core", "cli", "core"])
+            given(&["core", "cli", "core"]),
+            &Git
         )
         .unwrap(),
         CommitScopeRule::Required(set(&["core", "cli"]))
@@ -132,7 +135,8 @@ fn required_and_optional_allow_given_scopes() {
     assert_eq!(
         CommitRawConfig::resolve_scopes(
             Some(CommitScopeClapMode::Optional),
-            given(&["core", "cli", "core"])
+            given(&["core", "cli", "core"]),
+            &Git
         )
         .unwrap(),
         CommitScopeRule::Optional(set(&["core", "cli"]))
@@ -142,8 +146,12 @@ fn required_and_optional_allow_given_scopes() {
 #[test]
 fn forbidden_ignores_given_scopes() {
     assert_eq!(
-        CommitRawConfig::resolve_scopes(Some(CommitScopeClapMode::Forbidden), given(&["core"]))
-            .unwrap(),
+        CommitRawConfig::resolve_scopes(
+            Some(CommitScopeClapMode::Forbidden),
+            given(&["core"]),
+            &Git
+        )
+        .unwrap(),
         CommitScopeRule::Forbidden
     );
 }
@@ -156,7 +164,7 @@ fn required_and_optional_fail_without_scopes_before_reading_file() {
             scope_mode: Some(mode),
             ..config(dir.path().join("missing"), ListRawValues::default())
         };
-        let result = config.resolve();
+        let result = config.resolve(&Git);
         assert!(
             matches!(result, Err(CommitResolveError::NoScopes { mode: found }) if found == mode),
             "{result:?}"
@@ -167,7 +175,7 @@ fn required_and_optional_fail_without_scopes_before_reading_file() {
 #[test]
 fn auto_fails_when_given_scopes_are_all_excluded() {
     for mode in [None, Some(CommitScopeClapMode::Auto)] {
-        let result = CommitRawConfig::resolve_scopes(mode, raw(Some(&["core"]), &["core"]));
+        let result = CommitRawConfig::resolve_scopes(mode, raw(Some(&["core"]), &["core"]), &Git);
         assert!(
             matches!(
                 result,
@@ -185,6 +193,7 @@ fn rejects_unknown_exclusion_even_when_scopes_are_forbidden() {
     let result = CommitRawConfig::resolve_scopes(
         Some(CommitScopeClapMode::Forbidden),
         raw(Some(&["core"]), &["cli"]),
+        &Git,
     );
     assert!(
         matches!(
@@ -206,7 +215,7 @@ fn fails_without_types_before_reading_file() {
         type_defaults: Some(TypeDefaultsClapMode::Never),
         ..config(dir.path().join("missing"), ListRawValues::default())
     };
-    let result = config.resolve();
+    let result = config.resolve(&Git);
     assert!(
         matches!(
             result,
@@ -293,7 +302,7 @@ fn checks_only_values_entering_the_rules() {
         ..config(file.path().to_owned(), given(&["core(unix"]))
     };
     assert_eq!(
-        config.resolve().unwrap().1,
+        config.resolve(&Git).unwrap().1,
         CommitLintRules {
             types: set(&["feat"]),
             scopes: CommitScopeRule::Forbidden,
@@ -305,7 +314,7 @@ fn checks_only_values_entering_the_rules() {
 fn allows_scopes_with_balanced_parentheses() {
     let file = message_file(b"feat: x\n");
     let (_, rules) = config(file.path().to_owned(), given(&["core(unix)", "a b: c"]))
-        .resolve()
+        .resolve(&Git)
         .unwrap();
     assert_eq!(
         rules.scopes,

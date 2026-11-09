@@ -34,7 +34,7 @@ argument. Comments and the `git commit --verbose` diff in it are skipped (see
 
 ```sh
 #!/bin/sh
-exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
+exec vcs-lint commit "$1" --scope root --scope-dir crates
 ```
 
 ## Arguments
@@ -46,12 +46,18 @@ exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
 
 - `--type <TYPE>`: adds to the [allowed types](#definitions). A
   [list option](cli.md#list-options).
+- `--type-dir <DIR>`: adds the directories under `DIR` to the
+  [allowed types](#definitions) (see [Directories](cli.md#directories)). A
+  [list option](cli.md#list-options).
 - `--type-exclude <TYPE>`: excludes from the [allowed types](#definitions). A
   [list option](cli.md#list-options).
 - `--type-defaults <MODE>`: when the default types are included in the
   [allowed types](#definitions), `auto`, `always` or `never` (see
   [Defaults](cli.md#defaults)). `auto` when not given.
 - `--scope <SCOPE>`: adds to the [allowed scopes](#definitions). A
+  [list option](cli.md#list-options).
+- `--scope-dir <DIR>`: adds the directories under `DIR` to the
+  [allowed scopes](#definitions) (see [Directories](cli.md#directories)). A
   [list option](cli.md#list-options).
 - `--scope-exclude <SCOPE>`: excludes from the [allowed scopes](#definitions).
   A [list option](cli.md#list-options).
@@ -66,13 +72,15 @@ exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
 
 - **Allowed types**: [composed](cli.md#composition) from the default types
   `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
-  `chore`, `revert`, the `--type` values and the `--type-exclude` values. By
-  default, the default types are included only when no `--type` is given (see
+  `chore`, `revert`, the `--type` values, the `--type-dir` directories and the
+  `--type-exclude` values. By default, the default types are included only when
+  neither `--type` nor `--type-dir` is given (see
   [Defaults](cli.md#defaults)). When no type is left, nothing could pass, so the
   command fails with status `2`. The same set can be given to
   [`vcs-lint branch`](branch.md#definitions), but nothing requires it.
-- **Allowed scopes**: [composed](cli.md#composition) from the `--scope` values
-  and the `--scope-exclude` values. Empty when none are left.
+- **Allowed scopes**: [composed](cli.md#composition) from the `--scope` values,
+  the `--scope-dir` directories and the `--scope-exclude` values. Empty when
+  none are left.
 
 Values are matched exactly, including case.
 
@@ -123,11 +131,11 @@ A message with no line left fails with `commit message is empty`.
 | `forbidden` | `<type>: <subject>` |
 | `auto`, or not given | as `required` when any scope is given, as `forbidden` otherwise |
 
-Scopes count as given once `--scope` appears, even when every given scope is
-excluded. `required` and `optional`, and `auto` with scopes given, need at
+Scopes count as given once `--scope` or `--scope-dir` appears, even when every
+given scope is excluded or no directory is found. `required` and `optional`, and `auto` with scopes given, need at
 least one allowed scope; without one, the command fails with status `2` (see
 [Exit status](cli.md#exit-status)).
-`forbidden` ignores the `--scope` values.
+`forbidden` ignores the `--scope` values and the `--scope-dir` directories.
 
 A malformed header is reported with the form of the mode, written
 `<type>[(<scope>)]: <subject>` for `optional`.

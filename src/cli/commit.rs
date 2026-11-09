@@ -23,6 +23,14 @@ pub struct CommitClapArgs {
         value_parser = ListClapValues::parse
     )]
     scopes: Option<Vec<ListClapValues>>,
+    /// Directory whose subdirectories in the git index are allowed scopes,
+    /// given as repeated flags or comma-separated values
+    #[arg(
+        long = "scope-dir",
+        value_name = "DIR",
+        value_parser = ListClapValues::parse
+    )]
+    scope_dirs: Option<Vec<ListClapValues>>,
     /// Scope excluded from the allowed scopes, given as repeated flags or
     /// comma-separated values
     #[arg(
@@ -67,7 +75,11 @@ impl CommitClapArgs {
             file: self.file,
             types,
             type_defaults,
-            scopes: ListClapValues::into_raw_values(self.scopes, self.scopes_excluded),
+            scopes: ListClapValues::into_raw_values(
+                self.scopes,
+                self.scope_dirs,
+                self.scopes_excluded,
+            ),
             scope_mode: self.scope_mode,
         }
     }

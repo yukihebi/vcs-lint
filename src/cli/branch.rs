@@ -21,6 +21,14 @@ pub struct BranchClapArgs {
         value_parser = ListClapValues::parse
     )]
     protected: Option<Vec<ListClapValues>>,
+    /// Directory whose subdirectories in the git index are protected branches,
+    /// given as repeated flags or comma-separated values
+    #[arg(
+        long = "protected-dir",
+        value_name = "DIR",
+        value_parser = ListClapValues::parse
+    )]
+    protected_dirs: Option<Vec<ListClapValues>>,
     /// Branch excluded from the protected branches, given as repeated flags or
     /// comma-separated values
     #[arg(
@@ -53,7 +61,11 @@ impl BranchClapArgs {
             branch: self.branch,
             types,
             type_defaults,
-            protected: ListClapValues::into_raw_values(self.protected, self.protected_excluded),
+            protected: ListClapValues::into_raw_values(
+                self.protected,
+                self.protected_dirs,
+                self.protected_excluded,
+            ),
             detached: self.detached,
         }
     }

@@ -1,6 +1,7 @@
 use super::{DEFAULT_TYPES, list::ListRawValues, resolve_types};
 use crate::{
     cli::TypeDefaultsClapMode,
+    git::Git,
     name_set::NameSet,
     report::list::{ListName, ListResolveError},
 };
@@ -16,6 +17,7 @@ fn set(names: &[&str]) -> NameSet {
 fn raw(given: Option<&[&str]>, excluded: &[&str]) -> ListRawValues {
     ListRawValues {
         given: given.map(strings),
+        dirs: None,
         excluded: strings(excluded),
     }
 }
@@ -31,12 +33,12 @@ fn defaults_without(excluded: &[&str]) -> NameSet {
 fn auto_includes_defaults_only_without_given_types() {
     for mode in [None, Some(TypeDefaultsClapMode::Auto)] {
         assert_eq!(
-            resolve_types(raw(None, &[]), mode),
+            resolve_types(raw(None, &[]), mode, &Git),
             Ok(set(&DEFAULT_TYPES)),
             "{mode:?}"
         );
         assert_eq!(
-            resolve_types(raw(Some(&["feat", "wip", "feat"]), &[]), mode),
+            resolve_types(raw(Some(&["feat", "wip", "feat"]), &[]), mode, &Git),
             Ok(set(&["feat", "wip"])),
             "{mode:?}"
         );
@@ -46,7 +48,7 @@ fn auto_includes_defaults_only_without_given_types() {
 #[test]
 fn auto_keeps_defaults_when_only_excluding() {
     assert_eq!(
-        resolve_types(raw(None, &["chore", "style"]), None),
+        resolve_types(raw(None, &["chore", "style"]), None, &Git),
         Ok(defaults_without(&["chore", "style"]))
     );
 }
@@ -61,7 +63,8 @@ fn always_adds_given_types_to_defaults() {
     assert_eq!(
         resolve_types(
             raw(Some(&["wip", "feat"]), &["chore"]),
-            Some(TypeDefaultsClapMode::Always)
+            Some(TypeDefaultsClapMode::Always),
+            &Git
         ),
         Ok(set(&expected))
     );
@@ -70,7 +73,11 @@ fn always_adds_given_types_to_defaults() {
 #[test]
 fn never_leaves_only_given_types() {
     assert_eq!(
-        resolve_types(raw(Some(&["wip"]), &[]), Some(TypeDefaultsClapMode::Never)),
+        resolve_types(
+            raw(Some(&["wip"]), &[]),
+            Some(TypeDefaultsClapMode::Never),
+            &Git
+        ),
         Ok(set(&["wip"]))
     );
 }
@@ -80,7 +87,8 @@ fn never_rejects_excluding_a_default() {
     assert_eq!(
         resolve_types(
             raw(Some(&["wip"]), &["feat"]),
-            Some(TypeDefaultsClapMode::Never)
+            Some(TypeDefaultsClapMode::Never),
+            &Git
         ),
         Err(ListResolveError::UnknownExclusions {
             list: ListName::Types,
@@ -98,7 +106,7 @@ fn fails_when_no_type_is_left() {
         (raw(None, &DEFAULT_TYPES), None),
     ] {
         assert_eq!(
-            resolve_types(raw, mode),
+            resolve_types(raw, mode, &Git),
             Err(ListResolveError::Empty {
                 list: ListName::Types
             }),
