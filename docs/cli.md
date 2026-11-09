@@ -81,8 +81,15 @@ error: cannot read the directories under `packages` for `--scope-dir`
   no such directory
 ```
 
-A `DIR` with no such directory adds no values, but still counts as giving
-values (see [Composition](#composition)).
+Each `DIR` must add at least one directory. A `DIR` with none, such as one
+holding only files or only untracked directories, fails with status `2` as
+well, even when other values are given:
+
+```
+$ vcs-lint commit COMMIT_EDITMSG --scope root --scope-dir crates/core/src
+error: there are no directories under `crates/core/src` for `--scope-dir`
+  a directory counts when it holds a committed or staged file
+```
 
 ### Composition
 
@@ -99,7 +106,8 @@ options:
 3. Without the values given to the exclusion option.
 
 Values count as given once the list option or its directory option appears,
-even if no value comes of it; the exclusion option alone does not give values.
+even if every value is excluded; the exclusion option alone does not give
+values.
 Each command decides what an empty list means.
 
 Excluding a value that is not in the list fails with status `2`:

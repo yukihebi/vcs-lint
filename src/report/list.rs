@@ -66,6 +66,13 @@ pub enum ListResolveError {
         dir: PathBuf,
         cause: GitSubdirsError,
     },
+    /// A directory given to the list has no subdirectory that the index holds
+    /// entries in.
+    NoSubdirs {
+        list: ListName,
+        /// The directory as given.
+        dir: PathBuf,
+    },
 }
 
 impl Display for ListResolveError {
@@ -102,6 +109,13 @@ impl Display for ListResolveError {
                 }
                 Ok(())
             }
+            Self::NoSubdirs { list, dir } => write!(
+                f,
+                "there are no directories under `{}` for `{}`\n  \
+                 a directory counts when it holds a committed or staged file",
+                dir.display(),
+                list.dir_option()
+            ),
         }
     }
 }
