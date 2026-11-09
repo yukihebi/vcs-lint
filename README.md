@@ -10,8 +10,7 @@ A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Sy
   rejects direct commits to protected branches such as `main`,
   and can reject commits on a detached HEAD.
 - Lints commit message headers of the form `<type>: <subject>`,
-  or `<type>(<scope>): <subject>` when scopes are given,
-  and can make the scope optional.
+  or `<type>(<scope>): <subject>`.
 - Reports every violation at once.
 - Failure can be detected by the exit status.
 
