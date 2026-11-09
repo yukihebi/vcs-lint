@@ -1,12 +1,16 @@
 use insta::assert_snapshot;
 
+use vcs_lint::RunStatus;
+
 use super::Run;
 
 const SCOPES: [&str; 2] = ["--scope", "root,core"];
 
 #[test]
 fn accepts_valid_header_and_ignores_body() {
-    assert_snapshot!(Run::commit("feat: add matcher\n\nNot: checked\n", &[]), @"
+    let run = Run::commit("feat: add matcher\n\nNot: checked\n", &[]);
+    assert_status!(run, RunStatus::Success);
+    assert_snapshot!(run, @"
     exit: 0
     --- stdout
     --- stderr
@@ -15,7 +19,9 @@ fn accepts_valid_header_and_ignores_body() {
 
 #[test]
 fn accepts_valid_scoped_header() {
-    assert_snapshot!(Run::commit("fix(core): handle empty input\n", &SCOPES), @"
+    let run = Run::commit("fix(core): handle empty input\n", &SCOPES);
+    assert_status!(run, RunStatus::Success);
+    assert_snapshot!(run, @"
     exit: 0
     --- stdout
     --- stderr
@@ -33,7 +39,9 @@ feat: add matcher
 # Do not modify or remove the line above.
 diff --git a/src/lib.rs b/src/lib.rs
 ";
-    assert_snapshot!(Run::commit(message, &[]), @"
+    let run = Run::commit(message, &[]);
+    assert_status!(run, RunStatus::Success);
+    assert_snapshot!(run, @"
     exit: 0
     --- stdout
     --- stderr
@@ -42,7 +50,9 @@ diff --git a/src/lib.rs b/src/lib.rs
 
 #[test]
 fn accepts_autosquash_message() {
-    assert_snapshot!(Run::commit("fixup! feature: whatever\n", &[]), @"
+    let run = Run::commit("fixup! feature: whatever\n", &[]);
+    assert_status!(run, RunStatus::Success);
+    assert_snapshot!(run, @"
     exit: 0
     --- stdout
     --- stderr
@@ -51,7 +61,9 @@ fn accepts_autosquash_message() {
 
 #[test]
 fn rejects_unknown_type() {
-    assert_snapshot!(Run::commit("feature: add matcher\n", &["--type", "feat,fix"]), @"
+    let run = Run::commit("feature: add matcher\n", &["--type", "feat,fix"]);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr
@@ -63,7 +75,9 @@ fn rejects_unknown_type() {
 
 #[test]
 fn rejects_scope_when_scopes_are_not_used() {
-    assert_snapshot!(Run::commit("feat(core): add matcher\n", &[]), @"
+    let run = Run::commit("feat(core): add matcher\n", &[]);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr
@@ -75,7 +89,9 @@ fn rejects_scope_when_scopes_are_not_used() {
 
 #[test]
 fn rejects_missing_scope() {
-    assert_snapshot!(Run::commit("feat: add matcher\n", &SCOPES), @"
+    let run = Run::commit("feat: add matcher\n", &SCOPES);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr
@@ -86,8 +102,24 @@ fn rejects_missing_scope() {
 }
 
 #[test]
+fn rejects_malformed_header_without_scopes() {
+    let run = Run::commit("add matcher\n", &[]);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
+    exit: 1
+    --- stdout
+    --- stderr
+    error: invalid commit header `add matcher`
+      malformed header
+        expected: <type>: <subject>
+    ");
+}
+
+#[test]
 fn rejects_malformed_header() {
-    assert_snapshot!(Run::commit("add matcher\n", &SCOPES), @"
+    let run = Run::commit("add matcher\n", &SCOPES);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr
@@ -99,7 +131,9 @@ fn rejects_malformed_header() {
 
 #[test]
 fn reports_every_violation_together() {
-    assert_snapshot!(Run::commit("feature(parser):add matcher\n", &SCOPES), @"
+    let run = Run::commit("feature(parser):add matcher\n", &SCOPES);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr
@@ -113,8 +147,27 @@ fn reports_every_violation_together() {
 }
 
 #[test]
+fn reports_empty_subject_with_other_violations() {
+    let run = Run::commit("feature(parser):\n", &SCOPES);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
+    exit: 1
+    --- stdout
+    --- stderr
+    error: invalid commit header `feature(parser):`
+      unknown type `feature`
+        allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+      unknown scope `parser`
+        allowed scopes: root, core
+      empty subject
+    ");
+}
+
+#[test]
 fn rejects_empty_subject() {
-    assert_snapshot!(Run::commit("feat: \n", &[]), @"
+    let run = Run::commit("feat: \n", &[]);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr
@@ -125,7 +178,9 @@ fn rejects_empty_subject() {
 
 #[test]
 fn rejects_message_without_content() {
-    assert_snapshot!(Run::commit("\n# only a comment\n", &[]), @"
+    let run = Run::commit("\n# only a comment\n", &[]);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr

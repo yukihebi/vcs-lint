@@ -1,10 +1,14 @@
 use insta::assert_snapshot;
 
+use vcs_lint::RunStatus;
+
 use super::Run;
 
 #[test]
 fn accepts_valid_branch() {
-    assert_snapshot!(Run::new(&["branch", "feat/add-matcher"]), @"
+    let run = Run::new(&["branch", "feat/add-matcher"]);
+    assert_status!(run, RunStatus::Success);
+    assert_snapshot!(run, @"
     exit: 0
     --- stdout
     --- stderr
@@ -13,7 +17,9 @@ fn accepts_valid_branch() {
 
 #[test]
 fn rejects_protected_branch_without_checking_format() {
-    assert_snapshot!(Run::new(&["branch", "main", "--protected", "main,develop"]), @"
+    let run = Run::new(&["branch", "main", "--protected", "main,develop"]);
+    assert_status!(run, RunStatus::BranchLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr
@@ -24,7 +30,9 @@ fn rejects_protected_branch_without_checking_format() {
 
 #[test]
 fn rejects_missing_type_prefix() {
-    assert_snapshot!(Run::new(&["branch", "add-matcher", "--type", "feat,fix"]), @"
+    let run = Run::new(&["branch", "add-matcher", "--type", "feat,fix"]);
+    assert_status!(run, RunStatus::BranchLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr
@@ -36,8 +44,24 @@ fn rejects_missing_type_prefix() {
 }
 
 #[test]
+fn rejects_invalid_name() {
+    let run = Run::new(&["branch", "feat/Add_Matcher"]);
+    assert_status!(run, RunStatus::BranchLintError(_));
+    assert_snapshot!(run, @"
+    exit: 1
+    --- stdout
+    --- stderr
+    error: invalid branch name `feat/Add_Matcher`
+      invalid name `Add_Matcher`
+        expected: lowercase kebab-case starting with a letter, e.g. `add-matcher`
+    ");
+}
+
+#[test]
 fn reports_unknown_type_and_invalid_name_together() {
-    assert_snapshot!(Run::new(&["branch", "feature/Add_Matcher", "--type", "feat,fix"]), @"
+    let run = Run::new(&["branch", "feature/Add_Matcher", "--type", "feat,fix"]);
+    assert_status!(run, RunStatus::BranchLintError(_));
+    assert_snapshot!(run, @"
     exit: 1
     --- stdout
     --- stderr
