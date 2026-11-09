@@ -4,6 +4,8 @@ use vcs_lint::RunStatus;
 
 use super::Run;
 
+mod current;
+
 #[test]
 fn accepts_valid_branch() {
     let run = Run::new(&["branch", "feat/add-matcher"]);
@@ -194,11 +196,11 @@ fn prints_help() {
     --- stdout
     Lint a branch name of the form `<type>/<name>`
 
-    Usage: vcs-lint branch [OPTIONS] <NAME>
+    Usage: vcs-lint branch [OPTIONS] [NAME]
 
     Arguments:
-      <NAME>
-              Branch name to lint
+      [NAME]
+              Branch name to lint, or `HEAD` for a detached HEAD; the current branch when omitted
 
     Options:
           --type <TYPE>

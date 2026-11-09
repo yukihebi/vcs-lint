@@ -62,7 +62,7 @@ fn branch_takes_arguments_and_options() {
             "deny"
         ]),
         BranchRawConfig {
-            branch: "feat/x".to_owned(),
+            branch: Some("feat/x".to_owned()),
             types: raw(Some(&["feat"]), &["fix"]),
             type_defaults: Some(TypeDefaultsClapMode::Always),
             protected: raw(Some(&["main"]), &["develop"]),
@@ -76,13 +76,18 @@ fn branch_options_are_none_when_omitted() {
     assert_eq!(
         branch(&["feat/x"]),
         BranchRawConfig {
-            branch: "feat/x".to_owned(),
+            branch: Some("feat/x".to_owned()),
             types: ListRawValues::default(),
             type_defaults: None,
             protected: ListRawValues::default(),
             detached: None,
         }
     );
+}
+
+#[test]
+fn branch_name_is_none_when_omitted() {
+    assert_eq!(branch(&["--protected", "main"]).branch, None);
 }
 
 #[test]
@@ -292,7 +297,8 @@ fn help_and_version_are_info() {
 fn rejects_command_line_outside_syntax() {
     for (args, kind) in [
         (&[][..], ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand),
-        (&["branch"], ErrorKind::MissingRequiredArgument),
+        (&["commit"], ErrorKind::MissingRequiredArgument),
+        (&["branch", "feat/x", "feat/y"], ErrorKind::UnknownArgument),
         (
             &["branch", "feat/x", "--scope", "core"],
             ErrorKind::UnknownArgument,

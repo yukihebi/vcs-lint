@@ -3,13 +3,13 @@
 //! sets for hooks, such as `GIT_DIR` and `GIT_INDEX_FILE`.
 
 mod command;
-mod version;
+mod head;
 
 use std::ffi::OsString;
 
 use crate::report::git::GitError;
 use command::GitCommand;
-pub use version::GitVersion;
+pub use head::GitHead;
 
 /// The `git` executable, run in the current directory.
 #[derive(Debug)]
@@ -25,16 +25,16 @@ impl Git {
         }
     }
 
-    /// The version of git, readable outside a repository too.
-    pub fn version(&self) -> Result<GitVersion, GitError> {
-        self.command(&["version"]).read(GitVersion::parse)
+    /// What `HEAD` of the repository points to, including a branch with no
+    /// commit yet.
+    pub fn head(&self) -> Result<GitHead, GitError> {
+        let branch = self
+            .command(&["symbolic-ref", "-q", "HEAD"])
+            .read_optional(GitHead::parse_branch)?;
+        Ok(branch.map_or(GitHead::Detached, GitHead::Branch))
     }
 
     fn command(&self, args: &[&str]) -> GitCommand {
         GitCommand::new(&self.program, args)
     }
 }
-
-#[cfg(test)]
-#[path = "git_tests.rs"]
-mod tests;

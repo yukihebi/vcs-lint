@@ -1,9 +1,9 @@
 # `vcs-lint branch`
 
-Lints a branch name.
+Lints a branch name, or the current branch when no name is given.
 
 ```
-vcs-lint branch [OPTIONS] <NAME>
+vcs-lint branch [OPTIONS] [NAME]
 ```
 
 ## Examples
@@ -27,21 +27,18 @@ error: commits on a detached HEAD are not allowed
   switch to a branch or create one before committing
 ```
 
-As a Git `pre-commit` hook, linting the current branch.
-`git rev-parse --abbrev-ref HEAD` prints `HEAD` on a detached HEAD, which
-`--detached` then decides. `git branch --show-current` is not recommended, as
-it prints nothing both on a detached HEAD and when it fails.
+As a Git `pre-commit` hook, linting the [current branch](#current-branch):
 
 ```sh
 #!/bin/sh
-branch=$(git rev-parse --abbrev-ref HEAD) || exit
-exec vcs-lint branch "$branch" --protected main --detached deny
+exec vcs-lint branch --protected main --detached deny
 ```
 
 ## Arguments
 
-- `<NAME>`: the branch name to lint, or `HEAD` for a
-  [detached HEAD](#detached-head).
+- `[NAME]`: the branch name to lint, or `HEAD` for a
+  [detached HEAD](#detached-head). The [current branch](#current-branch) when
+  not given.
 
 ## Options
 
@@ -59,6 +56,26 @@ exec vcs-lint branch "$branch" --protected main --detached deny
 - `--detached <RULE>`: whether a [detached HEAD](#detached-head) passes,
   `allow` or `deny`. `allow` when not given.
 - `-h`, `--help`: print help.
+
+## Current branch
+
+Without `NAME`, the current branch is read from Git, as `HEAD` of the
+repository the current directory belongs to. Git is run as a child process, so
+`GIT_DIR` and worktrees are followed as Git itself does.
+
+- A branch, including one with no commit yet, is linted by its name.
+- A detached HEAD is linted as a [detached HEAD](#detached-head).
+- When Git is not found or the current directory is not in a repository, the
+  command fails with status `2`.
+
+The rules are checked first, so rules that cannot be resolved fail with status
+`2` without running Git.
+
+```
+$ vcs-lint branch
+error: `git symbolic-ref -q HEAD` failed with exit status: 128
+  fatal: not a git repository (or any of the parent directories): .git
+```
 
 ## Rules
 
@@ -87,7 +104,8 @@ Values no branch name can match fail with status `2` (see
 ### Detached HEAD
 
 A `NAME` of exactly `HEAD` stands for a detached HEAD, as Git refuses `HEAD`
-as a branch name. A detached HEAD has no branch name, so neither the protected
+as a branch name, and so does a detached HEAD read as the
+[current branch](#current-branch). A detached HEAD has no branch name, so neither the protected
 branches nor the format apply to it; `--detached` alone decides whether it
 passes.
 

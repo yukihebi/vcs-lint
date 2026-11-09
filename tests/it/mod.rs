@@ -11,6 +11,7 @@ macro_rules! assert_status {
 mod branch;
 mod cli;
 mod commit;
+mod workdir;
 
 use std::{
     ffi::OsStr,
@@ -22,28 +23,20 @@ use std::{
 use tempfile::NamedTempFile;
 use vcs_lint::RunStatus;
 
-/// How one run ends, with the exit code and output of the binary rendered as
-/// a whole for snapshots.
+/// How one run ends, through the library and through the binary.
 struct Run {
     status: RunStatus,
-    code: Option<i32>,
-    stdout: String,
-    stderr: String,
+    output: BinaryOutput,
 }
 
 impl Run {
     /// Runs `args` in the current directory, where relative paths resolve the
     /// same way for the library and the binary.
     fn new(args: &[impl AsRef<OsStr>]) -> Self {
-        let output = Command::new(env!("CARGO_BIN_EXE_vcs-lint"))
-            .args(args)
-            .output()
-            .unwrap();
+        let output = BinaryOutput::of(Command::new(BinaryOutput::PROGRAM).args(args));
         Self {
             status: vcs_lint::run(args.iter().map(|arg| arg.as_ref().to_owned()).collect()),
-            code: output.status.code(),
-            stdout: String::from_utf8(output.stdout).unwrap(),
-            stderr: String::from_utf8(output.stderr).unwrap(),
+            output,
         }
     }
 
@@ -57,6 +50,33 @@ impl Run {
 }
 
 impl Display for Run {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.output.fmt(f)
+    }
+}
+
+/// The exit code and output of the binary, rendered as a whole for snapshots.
+struct BinaryOutput {
+    code: Option<i32>,
+    stdout: String,
+    stderr: String,
+}
+
+impl BinaryOutput {
+    const PROGRAM: &str = env!("CARGO_BIN_EXE_vcs-lint");
+
+    /// Runs `command`, which runs the binary, to completion.
+    fn of(command: &mut Command) -> Self {
+        let output = command.output().unwrap();
+        Self {
+            code: output.status.code(),
+            stdout: String::from_utf8(output.stdout).unwrap(),
+            stderr: String::from_utf8(output.stderr).unwrap(),
+        }
+    }
+}
+
+impl Display for BinaryOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.code {
             Some(code) => writeln!(f, "exit: {code}")?,

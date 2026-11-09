@@ -9,6 +9,7 @@ A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Sy
 - Lints branch names of the form `<type>/<name>`,
   rejects direct commits to protected branches such as `main`,
   and can reject commits on a detached HEAD.
+  The current branch is read from Git when no name is given.
 - Lints commit message headers of the form `<type>: <subject>`,
   or `<type>(<scope>): <subject>`.
 - Reports every violation at once.
@@ -17,6 +18,7 @@ A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Sy
 ## Usage
 
 ```sh
+vcs-lint branch --protected main
 vcs-lint branch feat/add-matcher --protected main
 vcs-lint commit .git/COMMIT_EDITMSG
 vcs-lint commit .git/COMMIT_EDITMSG --scope root,$(ls crates | paste -sd, -)

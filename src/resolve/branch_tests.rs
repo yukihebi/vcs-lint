@@ -1,6 +1,7 @@
 use super::BranchRawConfig;
 use crate::{
     cli::{TypeDefaultsClapMode, branch::BranchDetachedClapRule},
+    git::Git,
     lint::branch::{BranchDetachedRule, BranchLintRules, BranchLintTarget},
     name_set::NameSet,
     report::{
@@ -27,7 +28,7 @@ fn raw(given: Option<&[&str]>, excluded: &[&str]) -> ListRawValues {
 
 fn config(branch: &str) -> BranchRawConfig {
     BranchRawConfig {
-        branch: branch.to_owned(),
+        branch: Some(branch.to_owned()),
         types: ListRawValues::default(),
         type_defaults: None,
         protected: ListRawValues::default(),
@@ -36,11 +37,11 @@ fn config(branch: &str) -> BranchRawConfig {
 }
 
 fn rules(config: BranchRawConfig) -> BranchLintRules {
-    config.resolve().unwrap().1
+    config.resolve(&Git::new()).unwrap().1
 }
 
 fn target(branch: &str) -> BranchLintTarget {
-    config(branch).resolve().unwrap().0
+    config(branch).resolve(&Git::new()).unwrap().0
 }
 
 fn detached_rule(rule: Option<BranchDetachedClapRule>) -> BranchDetachedRule {
@@ -54,14 +55,14 @@ fn detached_rule(rule: Option<BranchDetachedClapRule>) -> BranchDetachedRule {
 #[test]
 fn takes_branch_as_target_and_composes_lists() {
     let config = BranchRawConfig {
-        branch: "feat/x".to_owned(),
+        branch: Some("feat/x".to_owned()),
         types: raw(Some(&["feat", "fix", "wip", "feat"]), &["wip"]),
         type_defaults: Some(TypeDefaultsClapMode::Never),
         protected: raw(Some(&["main", "develop", "main"]), &["develop"]),
         detached: Some(BranchDetachedClapRule::Deny),
     };
     assert_eq!(
-        config.resolve().unwrap(),
+        config.resolve(&Git::new()).unwrap(),
         (
             BranchLintTarget::Branch("feat/x".to_owned()),
             BranchLintRules {
@@ -134,7 +135,10 @@ fn fails_on_lists_that_cannot_be_composed() {
             },
         ),
     ] {
-        assert_eq!(config.resolve(), Err(BranchResolveError::List(err)));
+        assert_eq!(
+            config.resolve(&Git::new()),
+            Err(BranchResolveError::List(err))
+        );
     }
 }
 
@@ -158,7 +162,7 @@ fn reports_unmatchable_types_and_protected_branches_together() {
         ..config("feat/x")
     };
     assert_eq!(
-        config.resolve(),
+        config.resolve(&Git::new()),
         Err(BranchResolveError::Unmatchable(vec![
             UnmatchableList {
                 list: ListName::Types,

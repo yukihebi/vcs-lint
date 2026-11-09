@@ -7,9 +7,10 @@ use crate::resolve::branch::BranchRawConfig;
 
 #[derive(Debug, Args)]
 pub struct BranchClapArgs {
-    /// Branch name to lint
+    /// Branch name to lint, or `HEAD` for a detached HEAD; the current branch
+    /// when omitted
     #[arg(value_name = "NAME")]
-    branch: String,
+    branch: Option<String>,
     #[command(flatten)]
     types: TypeClapArgs,
     /// Branch that must not be committed to directly, given as repeated flags

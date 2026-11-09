@@ -3,14 +3,16 @@
 use super::{list::ListRawValues, matchable::ListRequirement, resolve_types};
 use crate::{
     cli::{TypeDefaultsClapMode, branch::BranchDetachedClapRule},
+    git::{Git, GitHead},
     lint::branch::{BranchDetachedRule, BranchLintRules, BranchLintTarget},
-    report::{branch::BranchResolveError, list::ListName},
+    report::{branch::BranchResolveError, git::GitError, list::ListName},
 };
 
 /// The `branch` command line as parsed, before it is interpreted.
 #[derive(Debug, PartialEq, Eq)]
 pub struct BranchRawConfig {
-    pub branch: String,
+    /// The branch name given, or `None` to lint the current branch.
+    pub branch: Option<String>,
     pub types: ListRawValues,
     pub type_defaults: Option<TypeDefaultsClapMode>,
     pub protected: ListRawValues,
@@ -32,14 +34,23 @@ impl BranchRawConfig {
 
     /// Without any protected branch left, no branch is protected; without a
     /// rule for a detached HEAD, a detached HEAD is allowed.
-    pub fn resolve(self) -> Result<(BranchLintTarget, BranchLintRules), BranchResolveError> {
-        let target = Self::resolve_target(self.branch);
+    ///
+    /// Resolves the rules before reading the current branch from `git`, so
+    /// that rules that cannot be resolved are reported without running git.
+    pub fn resolve(
+        self,
+        git: &Git,
+    ) -> Result<(BranchLintTarget, BranchLintRules), BranchResolveError> {
         let rules = BranchLintRules {
             types: resolve_types(self.types, self.type_defaults)?,
             protected: self.protected.resolve(ListName::Protected, &[])?,
             detached: Self::resolve_detached(self.detached),
         };
         Self::check_matchable(&rules)?;
+        let target = match self.branch {
+            Some(branch) => Self::resolve_target(branch),
+            None => Self::read_target(git)?,
+        };
         Ok((target, rules))
     }
 
@@ -51,6 +62,14 @@ impl BranchRawConfig {
         } else {
             BranchLintTarget::Branch(branch)
         }
+    }
+
+    /// The current branch, or a detached HEAD, as `HEAD` points to it.
+    fn read_target(git: &Git) -> Result<BranchLintTarget, GitError> {
+        Ok(match git.head()? {
+            GitHead::Branch(branch) => BranchLintTarget::Branch(branch),
+            GitHead::Detached => BranchLintTarget::Detached,
+        })
     }
 
     fn resolve_detached(rule: Option<BranchDetachedClapRule>) -> BranchDetachedRule {
