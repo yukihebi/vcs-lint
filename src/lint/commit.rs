@@ -33,6 +33,8 @@ pub enum CommitScopeRule {
     Forbidden,
     /// Headers must have one of the scopes.
     Required(NameSet),
+    /// Headers may have one of the scopes, or none.
+    Optional(NameSet),
 }
 
 impl CommitLintRules {
@@ -82,23 +84,25 @@ impl CommitScopeRule {
         match self {
             Self::Forbidden => "<type>: <subject>",
             Self::Required(_) => "<type>(<scope>): <subject>",
+            Self::Optional(_) => "<type>[(<scope>)]: <subject>",
         }
     }
 
     fn lint(&self, found: Option<&str>) -> Option<CommitScopeViolation> {
         match (self, found) {
-            (Self::Forbidden, None) => None,
+            (Self::Forbidden | Self::Optional(_), None) => None,
             (Self::Forbidden, Some(found)) => Some(CommitScopeViolation::Unexpected {
                 found: found.to_owned(),
             }),
             (Self::Required(allowed), None) => Some(CommitScopeViolation::Missing {
                 allowed: allowed.clone(),
             }),
-            (Self::Required(allowed), Some(found)) if allowed.contains(found) => None,
-            (Self::Required(allowed), Some(found)) => Some(CommitScopeViolation::Unknown {
-                found: found.to_owned(),
-                allowed: allowed.clone(),
-            }),
+            (Self::Required(allowed) | Self::Optional(allowed), Some(found)) => {
+                (!allowed.contains(found)).then(|| CommitScopeViolation::Unknown {
+                    found: found.to_owned(),
+                    allowed: allowed.clone(),
+                })
+            }
         }
     }
 }

@@ -2,7 +2,7 @@ use std::ffi::OsString;
 
 use clap::error::ErrorKind;
 
-use super::{ClapCommand, Parsed, branch::BranchDetachedClapRule};
+use super::{ClapCommand, Parsed, branch::BranchDetachedClapRule, commit::CommitScopeClapMode};
 use crate::resolve::{branch::BranchRawConfig, commit::CommitRawConfig};
 
 fn parse(args: &[&str]) -> Result<Parsed, clap::Error> {
@@ -155,24 +155,56 @@ fn options_may_precede_positional_argument() {
 #[test]
 fn commit_keeps_file_without_reading_it() {
     assert_eq!(
-        commit(&["missing", "--type", "feat", "--scope", "core,cli"]),
+        commit(&[
+            "missing",
+            "--type",
+            "feat",
+            "--scope",
+            "core,cli",
+            "--scope-mode",
+            "optional"
+        ]),
         CommitRawConfig {
             file: "missing".into(),
             types: values(&["feat"]),
             scopes: values(&["core", "cli"]),
+            scope_mode: Some(CommitScopeClapMode::Optional),
         }
     );
 }
 
 #[test]
-fn commit_lists_are_none_when_omitted() {
+fn commit_options_are_none_when_omitted() {
     assert_eq!(
         commit(&["missing"]),
         CommitRawConfig {
             file: "missing".into(),
             types: None,
             scopes: None,
+            scope_mode: None,
         }
+    );
+}
+
+#[test]
+fn scope_mode_accepts_auto_and_forbidden_without_scopes() {
+    for (written, mode) in [
+        ("auto", CommitScopeClapMode::Auto),
+        ("forbidden", CommitScopeClapMode::Forbidden),
+    ] {
+        assert_eq!(
+            commit(&["missing", "--scope-mode", written]).scope_mode,
+            Some(mode),
+            "{written}"
+        );
+    }
+}
+
+#[test]
+fn scope_mode_accepts_required_with_scopes() {
+    assert_eq!(
+        commit(&["missing", "--scope-mode", "required", "--scope", "core"]).scope_mode,
+        Some(CommitScopeClapMode::Required)
     );
 }
 
@@ -206,6 +238,14 @@ fn rejects_command_line_outside_syntax() {
         (
             &["branch", "HEAD", "--detached", "allow,deny"],
             ErrorKind::InvalidValue,
+        ),
+        (
+            &["commit", "missing", "--scope-mode", "required"],
+            ErrorKind::MissingRequiredArgument,
+        ),
+        (
+            &["commit", "missing", "--scope-mode", "optional"],
+            ErrorKind::MissingRequiredArgument,
         ),
     ] {
         let Err(err) = parse(args) else {
