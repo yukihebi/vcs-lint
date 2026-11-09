@@ -85,15 +85,25 @@ fn names_directories_at_top_of_work_tree() {
 }
 
 #[test]
-fn compares_directory_by_whole_components() {
-    let stdout = listing(&[(BLOB, "crates-old/a/lib.rs")]);
-    assert_eq!(subdirs("crates", &stdout), None);
+fn names_nothing_without_entries() {
+    assert_eq!(subdirs("crates", b""), Some(vec![]));
+}
+
+/// The index may write the directory otherwise than its path on disk, as
+/// with the composed `é` git keeps on macOS for a decomposed one on disk, or
+/// a case changed on a case-insensitive file system.
+#[test]
+fn takes_entries_as_written_in_index() {
+    let stdout = listing(&[(BLOB, "caf\u{e9}/p/x")]);
+    assert_eq!(subdirs("cafe\u{301}", &stdout), Some(vec!["p".to_owned()]));
+    let stdout = listing(&[(BLOB, "Crates/a/x")]);
+    assert_eq!(subdirs("crates", &stdout), Some(vec!["a".to_owned()]));
 }
 
 #[test]
-fn rejects_entry_outside_directory() {
-    let stdout = listing(&[(BLOB, "crates/a/lib.rs"), (BLOB, "docs/a/x.md")]);
-    assert_eq!(subdirs("crates", &stdout), None);
+fn rejects_entry_above_directory() {
+    let stdout = listing(&[(BLOB, "crates/a/lib.rs"), (BLOB, "Cargo.toml")]);
+    assert_eq!(subdirs("crates/a", &stdout), None);
 }
 
 #[test]
