@@ -41,7 +41,8 @@ The values are then normalized:
 
 Each flag must be left with at least one value. A flag given only empty
 values, such as `--scope ""`, `--scope ,` or a shell substitution that comes
-out empty, is an invalid command line even when other flags give values:
+out empty, makes the command line syntactically invalid even when other flags
+give values:
 
 ```
 $ vcs-lint commit COMMIT_EDITMSG --scope root --scope "$(ls crates | paste -sd, -)"
@@ -63,4 +64,4 @@ success.
 | `0` | No violation, or help or the version was printed. |
 | `1` | A violation was found. |
 | `2` | An input could not be read, so it was not linted. |
-| `3` | The command line is invalid, such as an unknown option, a missing argument, a flag of a list option given only empty values or an argument that is not valid UTF-8. |
+| `3` | The command line is syntactically invalid. |
