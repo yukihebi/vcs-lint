@@ -34,12 +34,12 @@ fn prints_help() {
 fn prints_version() {
     let run = Run::new(&["--version"]);
     assert_status!(run, RunStatus::Info(_));
-    assert_eq!(run.code, Some(0));
+    assert_eq!(run.output.code, Some(0));
     assert_eq!(
-        run.stdout,
+        run.output.stdout,
         concat!("vcs-lint ", env!("CARGO_PKG_VERSION"), "\n")
     );
-    assert_eq!(run.stderr, "");
+    assert_eq!(run.output.stderr, "");
 }
 
 #[test]
@@ -88,7 +88,7 @@ fn rejects_non_utf8_argument() {
     --- stderr
     error: invalid UTF-8 was detected in one or more arguments
 
-    Usage: vcs-lint branch [OPTIONS] <NAME>
+    Usage: vcs-lint branch [OPTIONS] [NAME]
 
     For more information, try '--help'.
     ");
@@ -123,10 +123,10 @@ fn rejects_unreadable_commit_message_file() {
     let file = dir.path().join("missing");
     let run = Run::new(&[OsStr::new("commit"), file.as_os_str()]);
     assert_status!(run, RunStatus::CommitResolveError(_));
-    assert_eq!(run.code, Some(2));
-    assert_eq!(run.stdout, "");
+    assert_eq!(run.output.code, Some(2));
+    assert_eq!(run.output.stdout, "");
     assert_eq!(
-        run.stderr,
+        run.output.stderr,
         format!(
             "error: cannot read commit message file `{}`\n  No such file or directory (os error 2)\n",
             file.display()

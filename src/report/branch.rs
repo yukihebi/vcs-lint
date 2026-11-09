@@ -7,12 +7,18 @@ use std::fmt::{self, Display, Formatter};
 
 use derive_more::Display;
 
-use super::list::{ListResolveError, UnmatchableList};
+use super::{
+    git::GitError,
+    list::{ListResolveError, UnmatchableList},
+};
 use crate::name_set::NameSet;
 
-/// Why the rules cannot be resolved from the command line.
+/// Why the rules or the branch to lint cannot be resolved.
 #[derive(Debug, PartialEq, Eq, Display)]
 pub enum BranchResolveError {
+    /// The current branch cannot be read from git.
+    #[display("{_0}")]
+    Git(GitError),
     #[display("{_0}")]
     List(ListResolveError),
     /// Lists of the rules hold values no branch name can match; at least one
@@ -22,6 +28,12 @@ pub enum BranchResolveError {
         UnmatchableList::render_all(_0)
     )]
     Unmatchable(Vec<UnmatchableList>),
+}
+
+impl From<GitError> for BranchResolveError {
+    fn from(err: GitError) -> Self {
+        Self::Git(err)
+    }
 }
 
 impl From<ListResolveError> for BranchResolveError {

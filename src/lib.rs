@@ -4,10 +4,10 @@
 use std::ffi::OsString;
 
 use cli::{ClapCommand, Parsed};
+use git::Git;
 pub use report::RunStatus;
 
 mod cli;
-#[allow(dead_code, reason = "no command reads from git yet")]
 mod git;
 mod lint;
 mod name_set;
@@ -28,7 +28,7 @@ pub fn run(args: Vec<OsString>) -> RunStatus {
 fn run_command(command: ClapCommand) -> RunStatus {
     match command {
         ClapCommand::Branch(args) => {
-            let (target, rules) = match args.into_raw_config().resolve() {
+            let (target, rules) = match args.into_raw_config().resolve(&Git::new()) {
                 Ok(resolved) => resolved,
                 Err(err) => return RunStatus::BranchResolveError(err),
             };
