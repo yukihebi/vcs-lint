@@ -1,6 +1,6 @@
 //! Lint for commit messages, of which only the header is checked.
 
-mod header;
+pub mod header;
 
 use crate::{
     name_set::NameSet,
@@ -79,6 +79,14 @@ impl CommitLintRules {
 }
 
 impl CommitScopeRule {
+    /// The scopes headers may have, `None` when they must not have one.
+    pub fn allowed(&self) -> Option<&NameSet> {
+        match self {
+            Self::Forbidden => None,
+            Self::Required(allowed) | Self::Optional(allowed) => Some(allowed),
+        }
+    }
+
     /// The form a header takes under this rule.
     fn expected_form(&self) -> &'static str {
         match self {

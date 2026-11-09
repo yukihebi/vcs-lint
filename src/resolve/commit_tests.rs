@@ -12,7 +12,7 @@ use crate::{
     name_set::NameSet,
     report::{
         commit::CommitResolveError,
-        list::{ListName, ListResolveError},
+        list::{ListName, ListResolveError, UnmatchableList},
     },
     resolve::{DEFAULT_TYPES, list::ListRawValues},
 };
@@ -55,6 +55,13 @@ fn config(file: PathBuf, scopes: ListRawValues) -> CommitRawConfig {
 fn read_error(file: PathBuf) -> (PathBuf, io::Error) {
     match config(file, ListRawValues::default()).resolve() {
         Err(CommitResolveError::Unreadable { file, source }) => (file, source),
+        other => panic!("{other:?}"),
+    }
+}
+
+fn unmatchable(config: CommitRawConfig) -> Vec<UnmatchableList> {
+    match config.resolve() {
+        Err(CommitResolveError::Unmatchable(lists)) => lists,
         other => panic!("{other:?}"),
     }
 }
@@ -234,4 +241,74 @@ fn fails_on_message_outside_utf8() {
     let (path, source) = read_error(file.path().to_owned());
     assert_eq!(path, file.path());
     assert_eq!(source.kind(), io::ErrorKind::InvalidData);
+}
+
+#[test]
+fn reports_unmatchable_types_and_scopes_together_before_reading_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = CommitRawConfig {
+        types: given(&["feat", "wip!", "#x", "a b"]),
+        ..config(
+            dir.path().join("missing"),
+            given(&["core", "core(unix", "a\nb"]),
+        )
+    };
+    assert_eq!(
+        unmatchable(config),
+        [
+            UnmatchableList {
+                list: ListName::Types,
+                values: set(&["wip!", "#x", "a b"]),
+                requirement: CommitRawConfig::TYPES.wording,
+            },
+            UnmatchableList {
+                list: ListName::Scopes,
+                values: set(&["core(unix", "a\nb"]),
+                requirement: CommitRawConfig::SCOPES.wording,
+            },
+        ]
+    );
+}
+
+#[test]
+fn reports_unmatchable_scopes_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = config(dir.path().join("missing"), given(&["core)"]));
+    assert_eq!(
+        unmatchable(config),
+        [UnmatchableList {
+            list: ListName::Scopes,
+            values: set(&["core)"]),
+            requirement: CommitRawConfig::SCOPES.wording,
+        }]
+    );
+}
+
+#[test]
+fn checks_only_values_entering_the_rules() {
+    let file = message_file(b"feat: x\n");
+    let config = CommitRawConfig {
+        types: raw(Some(&["feat", "wip!"]), &["wip!"]),
+        scope_mode: Some(CommitScopeClapMode::Forbidden),
+        ..config(file.path().to_owned(), given(&["core(unix"]))
+    };
+    assert_eq!(
+        config.resolve().unwrap().1,
+        CommitLintRules {
+            types: set(&["feat"]),
+            scopes: CommitScopeRule::Forbidden,
+        }
+    );
+}
+
+#[test]
+fn allows_scopes_with_balanced_parentheses() {
+    let file = message_file(b"feat: x\n");
+    let (_, rules) = config(file.path().to_owned(), given(&["core(unix)", "a b: c"]))
+        .resolve()
+        .unwrap();
+    assert_eq!(
+        rules.scopes,
+        CommitScopeRule::Required(set(&["core(unix)", "a b: c"]))
+    );
 }

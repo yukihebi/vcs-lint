@@ -32,6 +32,21 @@ fn splits_header_with_scope() {
 }
 
 #[test]
+fn closes_scope_at_parenthesis_matching_its_opening() {
+    for (line, scope) in [
+        ("feat(core(unix)): x", "core(unix)"),
+        ("feat(a():b): x", "a():b"),
+        ("feat((a)(b)): x", "(a)(b)"),
+    ] {
+        assert_eq!(
+            CommitHeader::parse(line).unwrap().scope,
+            Some(scope),
+            "{line}"
+        );
+    }
+}
+
+#[test]
 fn keeps_empty_parts() {
     assert_eq!(
         CommitHeader::parse("():"),
@@ -65,6 +80,8 @@ fn rejects_header_without_colon_after_type_and_scope() {
         "feat (core): x",
         "feat(core) : x",
         "feat(core: x",
+        "feat((core): x",
+        "feat(core)): x",
         "feat(core)(x): y",
         "feat!: x",
         "feat(core)!: x",
@@ -100,5 +117,51 @@ fn rejects_empty_subject_without_judging_spacing() {
             "{line}"
         );
         assert_eq!(header.lint_spacing(), None, "{line}");
+    }
+}
+
+#[test]
+fn matchable_type_is_parsed_back_as_type() {
+    for (ty, matchable) in [
+        ("feat", true),
+        ("Feat-2_x.y", true),
+        ("機能", true),
+        ("#x", true),
+        ("wip!", false),
+        ("a:b", false),
+        ("a(b", false),
+        ("a)b", false),
+        ("a b", false),
+        ("a\u{3000}b", false),
+        ("a\nb", false),
+    ] {
+        assert_eq!(CommitHeader::is_matchable_type(ty), matchable, "{ty:?}");
+        let line = format!("{ty}: x");
+        let parsed = CommitHeader::parse(&line).map(|header| header.ty);
+        assert_eq!(parsed == Some(ty), matchable, "{ty:?}");
+    }
+}
+
+#[test]
+fn matchable_scope_is_parsed_back_as_scope() {
+    for (scope, matchable) in [
+        ("core", true),
+        ("a b: c!", true),
+        ("core(unix)", true),
+        ("(a)(b)", true),
+        ("a():b", true),
+        ("core(unix", false),
+        ("core)", false),
+        (")(", false),
+        ("a)(b", false),
+    ] {
+        assert_eq!(
+            CommitHeader::is_matchable_scope(scope),
+            matchable,
+            "{scope:?}"
+        );
+        let line = format!("feat({scope}): x");
+        let parsed = CommitHeader::parse(&line).and_then(|header| header.scope);
+        assert_eq!(parsed == Some(scope), matchable, "{scope:?}");
     }
 }

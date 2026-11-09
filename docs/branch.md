@@ -77,6 +77,13 @@ exec vcs-lint branch "$branch" --protected main --detached deny
 
 Values are matched exactly, including case.
 
+Values no branch name can match fail with status `2` (see
+[Values nothing can match](cli.md#values-nothing-can-match)):
+
+- An allowed type cannot contain `/`, as a branch name is split at its first
+  `/`, nor a line break.
+- A protected branch cannot contain a line break.
+
 ### Detached HEAD
 
 A `NAME` of exactly `HEAD` stands for a detached HEAD, as Git refuses `HEAD`

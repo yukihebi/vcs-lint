@@ -218,6 +218,39 @@ fn fails_on_excluding_type_outside_given_types() {
 }
 
 #[test]
+fn fails_on_types_and_scopes_no_header_can_match() {
+    let run = Run::commit(
+        "feat: add matcher\n",
+        &["--type", "feat,wip!,#draft", "--scope", "core,core(unix"],
+    );
+    assert_status!(run, RunStatus::CommitResolveError(_));
+    assert_snapshot!(run, @r##"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: no commit header can match these values
+      allowed types: "wip!", "#draft"
+        a type cannot contain `(`, `)`, `:`, `!` or whitespace, nor start with `#`
+      allowed scopes: "core(unix"
+        a scope cannot contain a line break, and its parentheses must be balanced
+    "##);
+}
+
+#[test]
+fn accepts_scope_with_balanced_parentheses() {
+    let run = Run::commit(
+        "feat(core(unix)): add matcher\n",
+        &["--scope", "core(unix)"],
+    );
+    assert_status!(run, RunStatus::Success);
+    assert_snapshot!(run, @"
+    exit: 0
+    --- stdout
+    --- stderr
+    ");
+}
+
+#[test]
 fn accepts_scope_left_after_exclusion() {
     let run = Run::commit(
         "feat(core): add matcher\n",

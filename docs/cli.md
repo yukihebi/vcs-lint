@@ -76,6 +76,28 @@ error: cannot exclude values outside the allowed scopes: core
   allowed scopes: root, cli
 ```
 
+### Values nothing can match
+
+Once composed, a list must not hold a value that nothing linted could match,
+such as a type that no commit header can have. Which values these are depends
+on the command and the list; a value with a line break is one of them for
+every list, as what is linted is a single line.
+
+Such values fail with status `2`, for every list holding some at once, and
+values are neither converted nor dropped:
+
+```
+$ vcs-lint commit COMMIT_EDITMSG --type feat,wip! --scope 'core,core(unix'
+error: no commit header can match these values
+  allowed types: "wip!"
+    a type cannot contain `(`, `)`, `:`, `!` or whitespace, nor start with `#`
+  allowed scopes: "core(unix"
+    a scope cannot contain a line break, and its parentheses must be balanced
+```
+
+Only values left in the list are checked, so excluding a value takes it out of
+the check.
+
 ### Defaults
 
 A list option with defaults comes with an option named after it with

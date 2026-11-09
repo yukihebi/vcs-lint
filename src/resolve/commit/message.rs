@@ -18,12 +18,17 @@ impl CommitMessage<'_> {
             .0
             .lines()
             .take_while(|line| *line != Self::SCISSORS)
-            .find(|line| !line.starts_with('#') && !line.trim().is_empty());
+            .find(|line| !Self::is_comment(line) && !line.trim().is_empty());
         match header {
             None => CommitLintTarget::Empty,
             Some(header) if Self::is_exempt(header) => CommitLintTarget::Exempt,
             Some(header) => CommitLintTarget::Header(header.to_owned()),
         }
+    }
+
+    /// Whether git strips `line` as a comment.
+    pub fn is_comment(line: &str) -> bool {
+        line.starts_with('#')
     }
 
     fn is_exempt(header: &str) -> bool {

@@ -12,7 +12,7 @@ use std::{
 
 use derive_more::Display;
 
-use super::list::ListResolveError;
+use super::list::{ListResolveError, UnmatchableList};
 use crate::{cli::commit::CommitScopeClapMode, name_set::NameSet};
 
 /// Why what to lint or the rules cannot be resolved from the command line.
@@ -25,6 +25,13 @@ pub enum CommitResolveError {
     /// The scope mode lets headers have a scope, but no scope is allowed.
     #[display("{}", CommitResolveError::no_scopes_message(*mode))]
     NoScopes { mode: CommitScopeClapMode },
+    /// Lists of the rules hold values no header can match; at least one list
+    /// is present.
+    #[display(
+        "no commit header can match these values{}",
+        UnmatchableList::render_all(_0)
+    )]
+    Unmatchable(Vec<UnmatchableList>),
 }
 
 impl CommitResolveError {

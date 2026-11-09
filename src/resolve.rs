@@ -4,6 +4,7 @@
 pub mod branch;
 pub mod commit;
 pub mod list;
+pub mod matchable;
 
 use crate::{
     cli::TypeDefaultsClapMode,

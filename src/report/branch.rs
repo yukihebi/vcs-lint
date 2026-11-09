@@ -7,7 +7,7 @@ use std::fmt::{self, Display, Formatter};
 
 use derive_more::Display;
 
-use super::list::ListResolveError;
+use super::list::{ListResolveError, UnmatchableList};
 use crate::name_set::NameSet;
 
 /// Why the rules cannot be resolved from the command line.
@@ -15,6 +15,13 @@ use crate::name_set::NameSet;
 pub enum BranchResolveError {
     #[display("{_0}")]
     List(ListResolveError),
+    /// Lists of the rules hold values no branch name can match; at least one
+    /// list is present.
+    #[display(
+        "no branch name can match these values{}",
+        UnmatchableList::render_all(_0)
+    )]
+    Unmatchable(Vec<UnmatchableList>),
 }
 
 impl From<ListResolveError> for BranchResolveError {

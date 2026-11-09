@@ -5,7 +5,7 @@ use crate::{
     name_set::NameSet,
     report::{
         branch::BranchResolveError,
-        list::{ListName, ListResolveError},
+        list::{ListName, ListResolveError, UnmatchableList},
     },
     resolve::{DEFAULT_TYPES, list::ListRawValues},
 };
@@ -147,5 +147,46 @@ fn interprets_detached_head_rule() {
     assert_eq!(
         detached_rule(Some(BranchDetachedClapRule::Deny)),
         BranchDetachedRule::Forbidden
+    );
+}
+
+#[test]
+fn reports_unmatchable_types_and_protected_branches_together() {
+    let config = BranchRawConfig {
+        types: raw(Some(&["feat", "a/b", "a b"]), &[]),
+        protected: raw(Some(&["main", "ma\nin", "ma\rin"]), &[]),
+        ..config("feat/x")
+    };
+    assert_eq!(
+        config.resolve(),
+        Err(BranchResolveError::Unmatchable(vec![
+            UnmatchableList {
+                list: ListName::Types,
+                values: set(&["a/b"]),
+                requirement: BranchRawConfig::TYPES.wording,
+            },
+            UnmatchableList {
+                list: ListName::Protected,
+                values: set(&["ma\nin", "ma\rin"]),
+                requirement: BranchRawConfig::PROTECTED.wording,
+            },
+        ]))
+    );
+}
+
+#[test]
+fn checks_only_values_entering_the_rules() {
+    let config = BranchRawConfig {
+        types: raw(Some(&["feat", "a/b"]), &["a/b"]),
+        protected: raw(Some(&["main", "ma\nin"]), &["ma\nin"]),
+        ..config("feat/x")
+    };
+    assert_eq!(
+        rules(config),
+        BranchLintRules {
+            types: set(&["feat"]),
+            protected: set(&["main"]),
+            detached: BranchDetachedRule::Allowed,
+        }
     );
 }
