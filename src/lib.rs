@@ -3,73 +3,47 @@
 
 use std::{ffi::OsString, process::ExitCode};
 
-use clap::Parser;
+use cli::{ClapCommand, Parsed};
+use report::RunStatus;
 
-use cli::{Cli, ReadError};
-use rules::{BranchRules, CommitRules};
-use status::Status;
-
-mod branch;
 mod cli;
-mod commit;
-mod rules;
-mod status;
-mod violations;
+mod lint;
+mod name_set;
+mod report;
+mod resolve;
 
 /// Runs the command line `args`, which exclude the program name.
 pub fn run(args: Vec<OsString>) -> ExitCode {
-    let cli = match Cli::try_parse_from(args) {
-        Ok(cli) => cli,
-        Err(err) => {
-            let _ = err.print();
-            return Status::of_clap(&err).into();
-        }
-    };
-    match cli
-        .into_lint()
-        .map_err(Error::from)
-        .and_then(|lint| lint.check())
-    {
-        Ok(()) => Status::Success.into(),
-        Err(err) => {
-            eprintln!("error: {err}");
-            err.status().into()
-        }
+    run_status(args).report()
+}
+
+fn run_status(args: Vec<OsString>) -> RunStatus {
+    match Parsed::parse(args) {
+        Ok(Parsed::Command(command)) => run_command(command),
+        Ok(Parsed::Info(info)) => RunStatus::Info(info),
+        Err(err) => RunStatus::SyntaxError(err),
     }
 }
 
-/// An input together with the rules to check it against.
-#[derive(Debug, PartialEq, Eq)]
-enum Lint {
-    Branch { name: String, rules: BranchRules },
-    Commit { message: String, rules: CommitRules },
-}
-
-impl Lint {
-    fn check(&self) -> Result<(), Error> {
-        match self {
-            Self::Branch { name, rules } => Ok(branch::lint(name, rules)?),
-            Self::Commit { message, rules } => Ok(commit::lint(message, rules)?),
+/// Resolves and lints what `command` refers to.
+fn run_command(command: ClapCommand) -> RunStatus {
+    match command {
+        ClapCommand::Branch(args) => {
+            let (target, rules) = args.into_raw_config().resolve();
+            match rules.lint(&target) {
+                Ok(()) => RunStatus::Success,
+                Err(err) => RunStatus::BranchLintError(err),
+            }
         }
-    }
-}
-
-/// Any failure reported as `error: ...`.
-#[derive(Debug, thiserror::Error)]
-enum Error {
-    #[error(transparent)]
-    Read(#[from] ReadError),
-    #[error(transparent)]
-    Branch(#[from] branch::Error),
-    #[error(transparent)]
-    Commit(#[from] commit::Error),
-}
-
-impl Error {
-    fn status(&self) -> Status {
-        match self {
-            Self::Read(_) => Status::RuntimeError,
-            Self::Branch(_) | Self::Commit(_) => Status::Violation,
+        ClapCommand::Commit(args) => {
+            let (target, rules) = match args.into_raw_config().resolve() {
+                Ok(resolved) => resolved,
+                Err(err) => return RunStatus::CommitResolveError(err),
+            };
+            match rules.lint(&target) {
+                Ok(()) => RunStatus::Success,
+                Err(err) => RunStatus::CommitLintError(err),
+            }
         }
     }
 }
