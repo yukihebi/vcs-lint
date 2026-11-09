@@ -7,6 +7,8 @@ use cli::{ClapCommand, Parsed};
 pub use report::RunStatus;
 
 mod cli;
+#[allow(dead_code, reason = "no command reads from git yet")]
+mod git;
 mod lint;
 mod name_set;
 mod report;
