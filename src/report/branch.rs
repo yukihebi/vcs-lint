@@ -11,6 +11,8 @@ use crate::name_set::NameSet;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BranchLintError {
+    /// Commits on a detached HEAD are not allowed.
+    Detached,
     /// The branch must not receive direct commits, whatever its format.
     Protected { branch: String },
     /// The branch has no `/` separating a type from a name.
@@ -26,6 +28,11 @@ pub enum BranchLintError {
 impl Display for BranchLintError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Detached => write!(
+                f,
+                "commits on a detached HEAD are not allowed\n  \
+                 switch to a branch or create one before committing"
+            ),
             Self::Protected { branch } => write!(
                 f,
                 "direct commits to `{branch}` are not allowed\n  \

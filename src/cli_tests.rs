@@ -2,7 +2,7 @@ use std::ffi::OsString;
 
 use clap::error::ErrorKind;
 
-use super::{ClapCommand, Parsed};
+use super::{ClapCommand, Parsed, branch::BranchDetachedClapRule};
 use crate::resolve::{branch::BranchRawConfig, commit::CommitRawConfig};
 
 fn parse(args: &[&str]) -> Result<Parsed, clap::Error> {
@@ -32,24 +32,42 @@ fn values(values: &[&str]) -> Option<Vec<String>> {
 #[test]
 fn branch_keeps_values_as_written() {
     assert_eq!(
-        branch(&["feat/x", "--type", " feat ", "--protected", "main"]),
+        branch(&[
+            "feat/x",
+            "--type",
+            " feat ",
+            "--protected",
+            "main",
+            "--detached",
+            "deny"
+        ]),
         BranchRawConfig {
             branch: "feat/x".to_owned(),
             types: values(&[" feat "]),
             protected: values(&["main"]),
+            detached: Some(BranchDetachedClapRule::Deny),
         }
     );
 }
 
 #[test]
-fn branch_lists_are_none_when_omitted() {
+fn branch_options_are_none_when_omitted() {
     assert_eq!(
         branch(&["feat/x"]),
         BranchRawConfig {
             branch: "feat/x".to_owned(),
             types: None,
             protected: None,
+            detached: None,
         }
+    );
+}
+
+#[test]
+fn detached_accepts_allow() {
+    assert_eq!(
+        branch(&["HEAD", "--detached", "allow"]).detached,
+        Some(BranchDetachedClapRule::Allow)
     );
 }
 
@@ -146,6 +164,14 @@ fn rejects_command_line_outside_syntax() {
             ErrorKind::UnknownArgument,
         ),
         (&["tag"], ErrorKind::InvalidSubcommand),
+        (
+            &["branch", "HEAD", "--detached", "Deny"],
+            ErrorKind::InvalidValue,
+        ),
+        (
+            &["branch", "HEAD", "--detached", "allow,deny"],
+            ErrorKind::InvalidValue,
+        ),
     ] {
         let Err(err) = parse(args) else {
             panic!("{args:?} parsed");
