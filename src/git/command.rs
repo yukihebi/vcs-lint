@@ -22,16 +22,16 @@ impl GitCommand {
     const ENV: [(&str, &str); 3] = [
         // Fails instead of prompting for credentials.
         ("GIT_TERMINAL_PROMPT", "0"),
-        // Skips optional writes such as refreshing the index, which would
-        // contend for its lock with the git process running a hook.
+        // Skips optional writes such as refreshing the index, so that reading
+        // never takes a lock.
         ("GIT_OPTIONAL_LOCKS", "0"),
         // Takes paths as they are, so a directory whose name holds glob
         // characters matches only itself.
         ("GIT_LITERAL_PATHSPECS", "1"),
     ];
 
-    /// The exit status of a query, such as `git symbolic-ref -q`, when what
-    /// it asks for is absent.
+    /// The exit status of a quiet query, such as `git symbolic-ref -q`, when
+    /// what it asks for is absent.
     const ABSENT: i32 = 1;
 
     /// A command running `program` with `args`.
@@ -44,9 +44,13 @@ impl GitCommand {
         }
     }
 
-    /// Runs a query, which exits with [`GitCommand::ABSENT`] when what it asks
-    /// for is absent, giving `None`, and otherwise reads its standard output
-    /// with `parse`, which gives `None` for output not in the expected form.
+    /// Runs a quiet query, which exits with [`GitCommand::ABSENT`] and prints
+    /// nothing when what it asks for is absent, giving `None`, and otherwise
+    /// reads its standard output with `parse`, which gives `None` for output
+    /// not in the expected form.
+    ///
+    /// The same status with output is a failure, as from a `git` that is not
+    /// git itself, such as a shim that cannot find git.
     pub fn read_optional<T>(
         self,
         parse: impl FnOnce(&[u8]) -> Option<T>,
@@ -56,7 +60,7 @@ impl GitCommand {
             Some(0) => parse(&output.stdout)
                 .map(Some)
                 .ok_or_else(|| GitError::unexpected_output(written, &output)),
-            Some(Self::ABSENT) => Ok(None),
+            Some(Self::ABSENT) if output.stdout.is_empty() && output.stderr.is_empty() => Ok(None),
             _ => Err(GitError::failed(written, &output)),
         }
     }
