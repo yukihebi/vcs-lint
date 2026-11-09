@@ -2,6 +2,8 @@
 
 pub mod branch;
 pub mod commit;
+#[allow(dead_code, reason = "no command reads from git yet")]
+pub mod git;
 pub mod list;
 
 use std::{fmt::Display, process::ExitCode};
