@@ -44,10 +44,17 @@ exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
 
 ## Options
 
-- `--type <TYPE>`: gives the [allowed types](#definitions). A
+- `--type <TYPE>`: adds to the [allowed types](#definitions). A
   [list option](cli.md#list-options).
-- `--scope <SCOPE>`: gives the [allowed scopes](#definitions). A
+- `--type-exclude <TYPE>`: excludes from the [allowed types](#definitions). A
   [list option](cli.md#list-options).
+- `--type-defaults <MODE>`: when the default types are included in the
+  [allowed types](#definitions), `auto`, `always` or `never` (see
+  [Defaults](cli.md#defaults)). `auto` when not given.
+- `--scope <SCOPE>`: adds to the [allowed scopes](#definitions). A
+  [list option](cli.md#list-options).
+- `--scope-exclude <SCOPE>`: excludes from the [allowed scopes](#definitions).
+  A [list option](cli.md#list-options).
 - `--scope-mode <MODE>`: whether headers have a scope, `auto`, `required`,
   `optional` or `forbidden` (see [Scope mode](#scope-mode)). `auto` when not
   given.
@@ -57,11 +64,15 @@ exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
 
 ### Definitions
 
-- **Allowed types**: the `--type` values, or `feat`, `fix`, `docs`, `style`,
-  `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` when none are
-  given. The same set can be given to
+- **Allowed types**: [composed](cli.md#composition) from the default types
+  `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
+  `chore`, `revert`, the `--type` values and the `--type-exclude` values. By
+  default, the default types are included only when no `--type` is given (see
+  [Defaults](cli.md#defaults)). When no type is left, nothing could pass, so the
+  command fails with status `2`. The same set can be given to
   [`vcs-lint branch`](branch.md#definitions), but nothing requires it.
-- **Allowed scopes**: the `--scope` values. Empty when none are given.
+- **Allowed scopes**: [composed](cli.md#composition) from the `--scope` values
+  and the `--scope-exclude` values. Empty when none are left.
 
 Values are matched exactly, including case.
 
@@ -102,8 +113,10 @@ A message with no line left fails with `commit message is empty`.
 | `forbidden` | `<type>: <subject>` |
 | `auto`, or not given | as `required` when any scope is given, as `forbidden` otherwise |
 
-`required` and `optional` need at least one allowed scope; without one, the
-command fails with status `2` (see [Exit status](cli.md#exit-status)).
+Scopes count as given once `--scope` appears, even when every given scope is
+excluded. `required` and `optional`, and `auto` with scopes given, need at
+least one allowed scope; without one, the command fails with status `2` (see
+[Exit status](cli.md#exit-status)).
 `forbidden` ignores the `--scope` values.
 
 A malformed header is reported with the form of the mode, written

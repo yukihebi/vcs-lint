@@ -45,10 +45,17 @@ exec vcs-lint branch "$branch" --protected main --detached deny
 
 ## Options
 
-- `--type <TYPE>`: gives the [allowed types](#definitions). A
+- `--type <TYPE>`: adds to the [allowed types](#definitions). A
   [list option](cli.md#list-options).
-- `--protected <BRANCH>`: gives the [protected branches](#definitions). A
+- `--type-exclude <TYPE>`: excludes from the [allowed types](#definitions). A
   [list option](cli.md#list-options).
+- `--type-defaults <MODE>`: when the default types are included in the
+  [allowed types](#definitions), `auto`, `always` or `never` (see
+  [Defaults](cli.md#defaults)). `auto` when not given.
+- `--protected <BRANCH>`: adds to the [protected branches](#definitions). A
+  [list option](cli.md#list-options).
+- `--protected-exclude <BRANCH>`: excludes from the
+  [protected branches](#definitions). A [list option](cli.md#list-options).
 - `--detached <RULE>`: whether a [detached HEAD](#detached-head) passes,
   `allow` or `deny`. `allow` when not given.
 - `-h`, `--help`: print help.
@@ -57,11 +64,16 @@ exec vcs-lint branch "$branch" --protected main --detached deny
 
 ### Definitions
 
-- **Allowed types**: the `--type` values, or `feat`, `fix`, `docs`, `style`,
-  `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` when none are
-  given. The same set can be given to
+- **Allowed types**: [composed](cli.md#composition) from the default types
+  `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
+  `chore`, `revert`, the `--type` values and the `--type-exclude` values. By
+  default, the default types are included only when no `--type` is given (see
+  [Defaults](cli.md#defaults)). When no type is left, nothing could pass, so the
+  command fails with status `2`. The same set can be given to
   [`vcs-lint commit`](commit.md#definitions), but nothing requires it.
-- **Protected branches**: the `--protected` values. Empty when none are given.
+- **Protected branches**: [composed](cli.md#composition) from the
+  `--protected` values and the `--protected-exclude` values. Empty when none
+  are left.
 
 Values are matched exactly, including case.
 

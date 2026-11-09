@@ -7,15 +7,29 @@ use tempfile::NamedTempFile;
 
 use super::CommitRawConfig;
 use crate::{
-    cli::commit::CommitScopeClapMode,
+    cli::{TypeDefaultsClapMode, commit::CommitScopeClapMode},
     lint::commit::{CommitLintRules, CommitLintTarget, CommitScopeRule},
     name_set::NameSet,
-    report::commit::CommitResolveError,
-    resolve::DEFAULT_TYPES,
+    report::{
+        commit::CommitResolveError,
+        list::{ListName, ListResolveError},
+    },
+    resolve::{DEFAULT_TYPES, list::ListRawValues},
 };
 
-fn values(values: &[&str]) -> Option<Vec<String>> {
-    Some(values.iter().copied().map(String::from).collect())
+fn strings(values: &[&str]) -> Vec<String> {
+    values.iter().copied().map(String::from).collect()
+}
+
+fn raw(given: Option<&[&str]>, excluded: &[&str]) -> ListRawValues {
+    ListRawValues {
+        given: given.map(strings),
+        excluded: strings(excluded),
+    }
+}
+
+fn given(values: &[&str]) -> ListRawValues {
+    raw(Some(values), &[])
 }
 
 fn set(names: &[&str]) -> NameSet {
@@ -28,17 +42,18 @@ fn message_file(content: &[u8]) -> NamedTempFile {
     file
 }
 
-fn config(file: PathBuf, scopes: Option<Vec<String>>) -> CommitRawConfig {
+fn config(file: PathBuf, scopes: ListRawValues) -> CommitRawConfig {
     CommitRawConfig {
         file,
-        types: None,
+        types: ListRawValues::default(),
+        type_defaults: None,
         scopes,
         scope_mode: None,
     }
 }
 
 fn read_error(file: PathBuf) -> (PathBuf, io::Error) {
-    match config(file, None).resolve() {
+    match config(file, ListRawValues::default()).resolve() {
         Err(CommitResolveError::Unreadable { file, source }) => (file, source),
         other => panic!("{other:?}"),
     }
@@ -49,8 +64,9 @@ fn reads_header_from_message_file() {
     let file = message_file(b"# comment\n\nfeat(core): x\n\nbody\n");
     let config = CommitRawConfig {
         file: file.path().to_owned(),
-        types: values(&["feat", "fix"]),
-        scopes: values(&["core", "cli", "core"]),
+        types: given(&["feat", "fix"]),
+        type_defaults: None,
+        scopes: raw(Some(&["core", "cli", "root", "core"]), &["root"]),
         scope_mode: None,
     };
     assert_eq!(
@@ -68,7 +84,9 @@ fn reads_header_from_message_file() {
 #[test]
 fn forbids_scopes_and_allows_default_types_when_omitted() {
     let file = message_file(b"feat: x\n");
-    let (_, rules) = config(file.path().to_owned(), None).resolve().unwrap();
+    let (_, rules) = config(file.path().to_owned(), ListRawValues::default())
+        .resolve()
+        .unwrap();
     assert_eq!(
         rules,
         CommitLintRules {
@@ -82,12 +100,12 @@ fn forbids_scopes_and_allows_default_types_when_omitted() {
 fn auto_requires_scopes_only_when_given() {
     for mode in [None, Some(CommitScopeClapMode::Auto)] {
         assert_eq!(
-            CommitRawConfig::resolve_scopes(mode, values(&["core", "cli"])).unwrap(),
+            CommitRawConfig::resolve_scopes(mode, given(&["core", "cli"])).unwrap(),
             CommitScopeRule::Required(set(&["core", "cli"])),
             "{mode:?}"
         );
         assert_eq!(
-            CommitRawConfig::resolve_scopes(mode, None).unwrap(),
+            CommitRawConfig::resolve_scopes(mode, ListRawValues::default()).unwrap(),
             CommitScopeRule::Forbidden,
             "{mode:?}"
         );
@@ -99,7 +117,7 @@ fn required_and_optional_allow_given_scopes() {
     assert_eq!(
         CommitRawConfig::resolve_scopes(
             Some(CommitScopeClapMode::Required),
-            values(&["core", "cli", "core"])
+            given(&["core", "cli", "core"])
         )
         .unwrap(),
         CommitScopeRule::Required(set(&["core", "cli"]))
@@ -107,7 +125,7 @@ fn required_and_optional_allow_given_scopes() {
     assert_eq!(
         CommitRawConfig::resolve_scopes(
             Some(CommitScopeClapMode::Optional),
-            values(&["core", "cli", "core"])
+            given(&["core", "cli", "core"])
         )
         .unwrap(),
         CommitScopeRule::Optional(set(&["core", "cli"]))
@@ -117,7 +135,7 @@ fn required_and_optional_allow_given_scopes() {
 #[test]
 fn forbidden_ignores_given_scopes() {
     assert_eq!(
-        CommitRawConfig::resolve_scopes(Some(CommitScopeClapMode::Forbidden), values(&["core"]))
+        CommitRawConfig::resolve_scopes(Some(CommitScopeClapMode::Forbidden), given(&["core"]))
             .unwrap(),
         CommitScopeRule::Forbidden
     );
@@ -129,7 +147,7 @@ fn required_and_optional_fail_without_scopes_before_reading_file() {
     for mode in [CommitScopeClapMode::Required, CommitScopeClapMode::Optional] {
         let config = CommitRawConfig {
             scope_mode: Some(mode),
-            ..config(dir.path().join("missing"), None)
+            ..config(dir.path().join("missing"), ListRawValues::default())
         };
         let result = config.resolve();
         assert!(
@@ -137,6 +155,60 @@ fn required_and_optional_fail_without_scopes_before_reading_file() {
             "{result:?}"
         );
     }
+}
+
+#[test]
+fn auto_fails_when_given_scopes_are_all_excluded() {
+    for mode in [None, Some(CommitScopeClapMode::Auto)] {
+        let result = CommitRawConfig::resolve_scopes(mode, raw(Some(&["core"]), &["core"]));
+        assert!(
+            matches!(
+                result,
+                Err(CommitResolveError::NoScopes {
+                    mode: CommitScopeClapMode::Auto
+                })
+            ),
+            "{result:?}"
+        );
+    }
+}
+
+#[test]
+fn rejects_unknown_exclusion_even_when_scopes_are_forbidden() {
+    let result = CommitRawConfig::resolve_scopes(
+        Some(CommitScopeClapMode::Forbidden),
+        raw(Some(&["core"]), &["cli"]),
+    );
+    assert!(
+        matches!(
+            &result,
+            Err(CommitResolveError::List(ListResolveError::UnknownExclusions {
+                list: ListName::Scopes,
+                unknown,
+                ..
+            })) if *unknown == set(&["cli"])
+        ),
+        "{result:?}"
+    );
+}
+
+#[test]
+fn fails_without_types_before_reading_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = CommitRawConfig {
+        type_defaults: Some(TypeDefaultsClapMode::Never),
+        ..config(dir.path().join("missing"), ListRawValues::default())
+    };
+    let result = config.resolve();
+    assert!(
+        matches!(
+            result,
+            Err(CommitResolveError::List(ListResolveError::Empty {
+                list: ListName::Types
+            }))
+        ),
+        "{result:?}"
+    );
 }
 
 #[test]

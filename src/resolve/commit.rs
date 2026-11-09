@@ -4,12 +4,11 @@ mod message;
 
 use std::{fs, path::PathBuf};
 
-use super::resolve_types;
+use super::{list::ListRawValues, resolve_types};
 use crate::{
-    cli::commit::CommitScopeClapMode,
+    cli::{TypeDefaultsClapMode, commit::CommitScopeClapMode},
     lint::commit::{CommitLintRules, CommitLintTarget, CommitScopeRule},
-    name_set::NameSet,
-    report::commit::CommitResolveError,
+    report::{commit::CommitResolveError, list::ListName},
 };
 use message::CommitMessage;
 
@@ -17,8 +16,9 @@ use message::CommitMessage;
 #[derive(Debug, PartialEq, Eq)]
 pub struct CommitRawConfig {
     pub file: PathBuf,
-    pub types: Option<Vec<String>>,
-    pub scopes: Option<Vec<String>>,
+    pub types: ListRawValues,
+    pub type_defaults: Option<TypeDefaultsClapMode>,
+    pub scopes: ListRawValues,
     pub scope_mode: Option<CommitScopeClapMode>,
 }
 
@@ -28,11 +28,12 @@ impl CommitRawConfig {
         let Self {
             file,
             types,
+            type_defaults,
             scopes,
             scope_mode,
         } = self;
         let rules = CommitLintRules {
-            types: resolve_types(types),
+            types: resolve_types(types, type_defaults)?,
             scopes: Self::resolve_scopes(scope_mode, scopes)?,
         };
         let text = fs::read_to_string(&file)
@@ -42,15 +43,15 @@ impl CommitRawConfig {
     }
 
     /// Without a mode, the mode is `auto`: a scope is required when any is
-    /// given and forbidden otherwise. A mode that lets headers have a scope
-    /// fails when no scope is allowed.
+    /// given, even if every given scope is excluded, and forbidden otherwise.
+    /// A mode that lets headers have a scope fails when no scope is allowed.
     fn resolve_scopes(
         mode: Option<CommitScopeClapMode>,
-        scopes: Option<Vec<String>>,
+        scopes: ListRawValues,
     ) -> Result<CommitScopeRule, CommitResolveError> {
         let mode = mode.unwrap_or(CommitScopeClapMode::Auto);
-        let given = scopes.is_some();
-        let allowed: NameSet = scopes.into_iter().flatten().collect();
+        let given = scopes.given.is_some();
+        let allowed = scopes.resolve(ListName::Scopes, &[])?;
         match mode {
             CommitScopeClapMode::Auto if !given => Ok(CommitScopeRule::Forbidden),
             CommitScopeClapMode::Forbidden => Ok(CommitScopeRule::Forbidden),

@@ -52,6 +52,49 @@ error: invalid value '' for '--scope <SCOPE>': every value is empty
 Adding a fixed value to the same flag, as in `--scope root,$(…)`, keeps the
 flag valid when the substitution is empty.
 
+### Composition
+
+Each list option comes with an exclusion option, named after it with
+`-exclude`, such as `--scope-exclude` for `--scope`. An exclusion option is a
+list option itself.
+
+The values of the list are composed as follows, whatever the order of the
+options:
+
+1. The defaults of the list, when they are [included](#defaults).
+2. Then the values given to the list option, without repeating a value.
+3. Without the values given to the exclusion option.
+
+Values count as given once the list option appears; the exclusion option
+alone does not give values. Each command decides what an empty list means.
+
+Excluding a value that is not in the list fails with status `2`:
+
+```
+$ vcs-lint commit COMMIT_EDITMSG --scope root,cli --scope-exclude core
+error: cannot exclude values outside the allowed scopes: core
+  allowed scopes: root, cli
+```
+
+### Defaults
+
+A list option with defaults comes with an option named after it with
+`-defaults`, which decides when the defaults are included:
+
+| Mode | Defaults |
+|---|---|
+| `auto`, or not given | included only when no values are given |
+| `always` | always included |
+| `never` | never included |
+
+Only `--type` has defaults, so `--type-defaults` is the only such option:
+
+```sh
+vcs-lint commit COMMIT_EDITMSG --type-exclude chore              # the defaults but chore
+vcs-lint commit COMMIT_EDITMSG --type wip --type-defaults always # the defaults and wip
+vcs-lint commit COMMIT_EDITMSG --type wip                        # wip alone
+```
+
 ## Output
 
 Violations and errors are written to standard error. Nothing is written on

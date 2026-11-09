@@ -186,6 +186,52 @@ fn fails_on_scope_mode_needing_scopes_without_them() {
 }
 
 #[test]
+fn fails_when_every_given_scope_is_excluded() {
+    let run = Run::commit(
+        "feat: add matcher\n",
+        &["--scope", "core", "--scope-exclude", "core"],
+    );
+    assert_status!(run, RunStatus::CommitResolveError(_));
+    assert_snapshot!(run, @"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: scopes are given, but none is left allowed
+      give one with `--scope`, or give none to forbid scopes
+    ");
+}
+
+#[test]
+fn fails_on_excluding_type_outside_given_types() {
+    let run = Run::commit(
+        "feat: add matcher\n",
+        &["--type", "feat,fix", "--type-exclude", "chore"],
+    );
+    assert_status!(run, RunStatus::CommitResolveError(_));
+    assert_snapshot!(run, @"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: cannot exclude values outside the allowed types: chore
+      allowed types: feat, fix
+    ");
+}
+
+#[test]
+fn accepts_scope_left_after_exclusion() {
+    let run = Run::commit(
+        "feat(core): add matcher\n",
+        &["--scope", "root,core", "--scope-exclude", "root"],
+    );
+    assert_status!(run, RunStatus::Success);
+    assert_snapshot!(run, @"
+    exit: 0
+    --- stdout
+    --- stderr
+    ");
+}
+
+#[test]
 fn rejects_malformed_header() {
     let run = Run::commit("add matcher\n", &SCOPES);
     assert_status!(run, RunStatus::CommitLintError(_));
@@ -276,10 +322,25 @@ fn prints_help() {
     Options:
           --type <TYPE>
               Allowed type, given as repeated flags or comma-separated values
-              [default: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
+              [defaults: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
+
+          --type-exclude <TYPE>
+              Type excluded from the allowed types, given as repeated flags or comma-separated values
+
+          --type-defaults <MODE>
+              When the default types are allowed
+              [default: auto]
+
+              Possible values:
+              - auto:   Allowed only when no type is given
+              - always: Allowed besides the given types
+              - never:  Never allowed
 
           --scope <SCOPE>
               Allowed scope, given as repeated flags or comma-separated values
+
+          --scope-exclude <SCOPE>
+              Scope excluded from the allowed scopes, given as repeated flags or comma-separated values
 
           --scope-mode <MODE>
               Whether commit headers have a scope

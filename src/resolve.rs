@@ -3,19 +3,41 @@
 
 pub mod branch;
 pub mod commit;
+pub mod list;
 
-use crate::name_set::NameSet;
+use crate::{
+    cli::TypeDefaultsClapMode,
+    name_set::NameSet,
+    report::list::{ListName, ListResolveError},
+};
+use list::ListRawValues;
 
-/// Types commonly used with Conventional Commits, allowed when no type is
-/// given.
+/// Types commonly used with Conventional Commits, allowed by default.
 pub const DEFAULT_TYPES: [&str; 11] = [
     "feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert",
 ];
 
-/// Interprets the values of `--type`, falling back to [`DEFAULT_TYPES`] when
-/// it is omitted.
-fn resolve_types(values: Option<Vec<String>>) -> NameSet {
-    values.map_or_else(|| DEFAULT_TYPES.into_iter().collect(), NameSet::from_iter)
+/// Composes the allowed types, including [`DEFAULT_TYPES`] as `mode` says
+/// (`auto` when omitted), failing when no type is left since no type could
+/// pass.
+fn resolve_types(
+    types: ListRawValues,
+    mode: Option<TypeDefaultsClapMode>,
+) -> Result<NameSet, ListResolveError> {
+    let with_defaults = match mode.unwrap_or(TypeDefaultsClapMode::Auto) {
+        TypeDefaultsClapMode::Auto => types.given.is_none(),
+        TypeDefaultsClapMode::Always => true,
+        TypeDefaultsClapMode::Never => false,
+    };
+    let defaults: &[&str] = if with_defaults { &DEFAULT_TYPES } else { &[] };
+    let allowed = types.resolve(ListName::Types, defaults)?;
+    if allowed.is_empty() {
+        Err(ListResolveError::Empty {
+            list: ListName::Types,
+        })
+    } else {
+        Ok(allowed)
+    }
 }
 
 #[cfg(test)]

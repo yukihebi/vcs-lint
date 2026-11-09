@@ -23,6 +23,14 @@ pub struct CommitClapArgs {
         value_parser = ListClapValues::parse
     )]
     scopes: Option<Vec<ListClapValues>>,
+    /// Scope excluded from the allowed scopes, given as repeated flags or
+    /// comma-separated values
+    #[arg(
+        long = "scope-exclude",
+        value_name = "SCOPE",
+        value_parser = ListClapValues::parse
+    )]
+    scopes_excluded: Option<Vec<ListClapValues>>,
     #[arg(
         long = "scope-mode",
         value_name = "MODE",
@@ -54,10 +62,12 @@ impl Display for CommitScopeClapMode {
 
 impl CommitClapArgs {
     pub fn into_raw_config(self) -> CommitRawConfig {
+        let (types, type_defaults) = self.types.into_raw_values();
         CommitRawConfig {
             file: self.file,
-            types: ListClapValues::concat(self.types.types),
-            scopes: ListClapValues::concat(self.scopes),
+            types,
+            type_defaults,
+            scopes: ListClapValues::into_raw_values(self.scopes, self.scopes_excluded),
             scope_mode: self.scope_mode,
         }
     }
