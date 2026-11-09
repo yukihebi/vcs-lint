@@ -59,14 +59,15 @@ exec vcs-lint branch --protected main --detached deny
 
 ## Current branch
 
-Without `NAME`, the current branch is read from Git, as `HEAD` of the
-repository the current directory belongs to. Git is run as a child process, so
-`GIT_DIR` and worktrees are followed as Git itself does.
+Without `NAME`, the current branch is read from Git as what `HEAD` points to.
+Git is run as a child process, so it finds the repository as it does for any
+command, including `GIT_DIR` and worktrees.
 
 - A branch, including one with no commit yet, is linted by its name.
-- A detached HEAD is linted as a [detached HEAD](#detached-head).
-- When Git is not found or the current directory is not in a repository, the
-  command fails with status `2`.
+- A detached HEAD, as during a rebase, is linted as a
+  [detached HEAD](#detached-head).
+- When Git is not found or no repository is found, the command fails with
+  status `2`.
 
 The rules are checked first, so rules that cannot be resolved fail with status
 `2` without running Git.
@@ -104,10 +105,9 @@ Values no branch name can match fail with status `2` (see
 ### Detached HEAD
 
 A `NAME` of exactly `HEAD` stands for a detached HEAD, as Git refuses `HEAD`
-as a branch name, and so does a detached HEAD read as the
-[current branch](#current-branch). A detached HEAD has no branch name, so neither the protected
-branches nor the format apply to it; `--detached` alone decides whether it
-passes.
+as a branch name. The [current branch](#current-branch) may also be a detached
+HEAD. A detached HEAD has no branch name, so neither the protected branches nor
+the format apply to it; `--detached` alone decides whether it passes.
 
 | `--detached` | Result for `HEAD` |
 |---|---|

@@ -37,11 +37,11 @@ fn config(branch: &str) -> BranchRawConfig {
 }
 
 fn rules(config: BranchRawConfig) -> BranchLintRules {
-    config.resolve(&Git::new()).unwrap().1
+    config.resolve(&Git).unwrap().1
 }
 
 fn target(branch: &str) -> BranchLintTarget {
-    config(branch).resolve(&Git::new()).unwrap().0
+    config(branch).resolve(&Git).unwrap().0
 }
 
 fn detached_rule(rule: Option<BranchDetachedClapRule>) -> BranchDetachedRule {
@@ -62,7 +62,7 @@ fn takes_branch_as_target_and_composes_lists() {
         detached: Some(BranchDetachedClapRule::Deny),
     };
     assert_eq!(
-        config.resolve(&Git::new()).unwrap(),
+        config.resolve(&Git).unwrap(),
         (
             BranchLintTarget::Branch("feat/x".to_owned()),
             BranchLintRules {
@@ -135,10 +135,7 @@ fn fails_on_lists_that_cannot_be_composed() {
             },
         ),
     ] {
-        assert_eq!(
-            config.resolve(&Git::new()),
-            Err(BranchResolveError::List(err))
-        );
+        assert_eq!(config.resolve(&Git), Err(BranchResolveError::List(err)));
     }
 }
 
@@ -162,7 +159,7 @@ fn reports_unmatchable_types_and_protected_branches_together() {
         ..config("feat/x")
     };
     assert_eq!(
-        config.resolve(&Git::new()),
+        config.resolve(&Git),
         Err(BranchResolveError::Unmatchable(vec![
             UnmatchableList {
                 list: ListName::Types,

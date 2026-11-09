@@ -3,27 +3,20 @@
 //! sets for hooks, such as `GIT_DIR` and `GIT_INDEX_FILE`.
 
 mod command;
-mod head;
+pub mod head;
 
-use std::ffi::OsString;
+use std::ffi::OsStr;
 
 use crate::report::git::GitError;
 use command::GitCommand;
-pub use head::GitHead;
+use head::GitHead;
 
-/// The `git` executable, run in the current directory.
+/// The `git` executable found on `PATH`, run in the current directory.
 #[derive(Debug)]
-pub struct Git {
-    program: OsString,
-}
+pub struct Git;
 
 impl Git {
-    /// The `git` found on `PATH`.
-    pub fn new() -> Self {
-        Self {
-            program: OsString::from("git"),
-        }
-    }
+    const PROGRAM: &str = "git";
 
     /// What `HEAD` of the repository points to, including a branch with no
     /// commit yet.
@@ -35,6 +28,6 @@ impl Git {
     }
 
     fn command(&self, args: &[&str]) -> GitCommand {
-        GitCommand::new(&self.program, args)
+        GitCommand::new(OsStr::new(Self::PROGRAM), args)
     }
 }

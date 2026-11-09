@@ -22,7 +22,8 @@ pub enum RunStatus {
     /// The command line does not follow the syntax of the commands. Exits
     /// with `3`.
     SyntaxError(clap::Error),
-    /// The rules cannot be resolved, so nothing is linted. Exits with `2`.
+    /// The rules or the branch to lint cannot be resolved, so nothing is
+    /// linted. Exits with `2`.
     BranchResolveError(BranchResolveError),
     /// The commit message or the rules cannot be resolved, so nothing is
     /// linted. Exits with `2`.
