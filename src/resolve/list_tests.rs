@@ -1,5 +1,6 @@
 use super::ListRawValues;
 use crate::{
+    git::Git,
     name_set::NameSet,
     report::list::{ListName, ListResolveError},
 };
@@ -15,6 +16,7 @@ fn set(names: &[&str]) -> NameSet {
 fn raw(given: Option<&[&str]>, excluded: &[&str]) -> ListRawValues {
     ListRawValues {
         given: given.map(strings),
+        dirs: None,
         excluded: strings(excluded),
     }
 }
@@ -22,7 +24,7 @@ fn raw(given: Option<&[&str]>, excluded: &[&str]) -> ListRawValues {
 #[test]
 fn keeps_defaults_without_given_values() {
     assert_eq!(
-        raw(None, &[]).resolve(ListName::Types, &["feat", "fix"]),
+        raw(None, &[]).resolve(ListName::Types, &["feat", "fix"], &Git),
         Ok(set(&["feat", "fix"]))
     );
 }
@@ -30,7 +32,7 @@ fn keeps_defaults_without_given_values() {
 #[test]
 fn adds_given_values_after_defaults() {
     assert_eq!(
-        raw(Some(&["wip", "fix", "wip"]), &[]).resolve(ListName::Types, &["feat", "fix"]),
+        raw(Some(&["wip", "fix", "wip"]), &[]).resolve(ListName::Types, &["feat", "fix"], &Git),
         Ok(set(&["feat", "fix", "wip"]))
     );
 }
@@ -38,7 +40,11 @@ fn adds_given_values_after_defaults() {
 #[test]
 fn excludes_values_from_defaults_and_given_values() {
     assert_eq!(
-        raw(Some(&["wip", "tmp"]), &["fix", "tmp"]).resolve(ListName::Types, &["feat", "fix"]),
+        raw(Some(&["wip", "tmp"]), &["fix", "tmp"]).resolve(
+            ListName::Types,
+            &["feat", "fix"],
+            &Git
+        ),
         Ok(set(&["feat", "wip"]))
     );
 }
@@ -46,7 +52,7 @@ fn excludes_values_from_defaults_and_given_values() {
 #[test]
 fn excludes_every_value() {
     assert_eq!(
-        raw(Some(&["main"]), &["main"]).resolve(ListName::Protected, &[]),
+        raw(Some(&["main"]), &["main"]).resolve(ListName::Protected, &[], &Git),
         Ok(set(&[]))
     );
 }
@@ -54,7 +60,7 @@ fn excludes_every_value() {
 #[test]
 fn fails_on_excluding_values_outside_list() {
     assert_eq!(
-        raw(Some(&["core"]), &["cli", "core", "root", "cli"]).resolve(ListName::Scopes, &[]),
+        raw(Some(&["core"]), &["cli", "core", "root", "cli"]).resolve(ListName::Scopes, &[], &Git),
         Err(ListResolveError::UnknownExclusions {
             list: ListName::Scopes,
             unknown: set(&["cli", "root"]),
@@ -66,7 +72,7 @@ fn fails_on_excluding_values_outside_list() {
 #[test]
 fn fails_on_excluding_value_from_empty_list() {
     assert_eq!(
-        raw(None, &["main"]).resolve(ListName::Protected, &[]),
+        raw(None, &["main"]).resolve(ListName::Protected, &[], &Git),
         Err(ListResolveError::UnknownExclusions {
             list: ListName::Protected,
             unknown: set(&["main"]),

@@ -3,13 +3,14 @@
 //! List options accept both repeated flags and comma-separated values, so a
 //! list can be written by hand or assembled by a shell. Each flag must give a
 //! value, so a substitution that comes out empty is reported rather than
-//! dropped. A list option comes with an option excluding values from it, named
-//! after the list so that help shows them together.
+//! dropped. A list option comes with an option adding the names of the
+//! subdirectories of directories to it and an option excluding values from it,
+//! named after the list so that help shows them together.
 
 pub mod branch;
 pub mod commit;
 
-use std::ffi::OsString;
+use std::{ffi::OsString, path::PathBuf};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -67,6 +68,14 @@ struct TypeClapArgs {
         help = TypeClapArgs::help(),
     )]
     types: Option<Vec<ListClapValues>>,
+    /// Directory whose subdirectories in the git index are allowed types,
+    /// given as repeated flags or comma-separated values
+    #[arg(
+        long = "type-dir",
+        value_name = "DIR",
+        value_parser = ListClapValues::parse
+    )]
+    dirs: Option<Vec<ListClapValues>>,
     /// Type excluded from the allowed types, given as repeated flags or
     /// comma-separated values
     #[arg(
@@ -93,7 +102,7 @@ impl TypeClapArgs {
 
     fn into_raw_values(self) -> (ListRawValues, Option<TypeDefaultsClapMode>) {
         (
-            ListClapValues::into_raw_values(self.types, self.excluded),
+            ListClapValues::into_raw_values(self.types, self.dirs, self.excluded),
             self.defaults,
         )
     }
@@ -132,11 +141,16 @@ impl ListClapValues {
         }
     }
 
-    /// The values of every flag of a list option and of its exclusion option,
-    /// in the order written.
-    fn into_raw_values(given: Option<Vec<Self>>, excluded: Option<Vec<Self>>) -> ListRawValues {
+    /// The values of every flag of a list option, of its option giving
+    /// directories and of its exclusion option, in the order written.
+    fn into_raw_values(
+        given: Option<Vec<Self>>,
+        dirs: Option<Vec<Self>>,
+        excluded: Option<Vec<Self>>,
+    ) -> ListRawValues {
         ListRawValues {
             given: Self::concat(given),
+            dirs: Self::concat(dirs).map(|dirs| dirs.into_iter().map(PathBuf::from).collect()),
             excluded: Self::concat(excluded).unwrap_or_default(),
         }
     }

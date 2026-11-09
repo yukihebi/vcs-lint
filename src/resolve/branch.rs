@@ -36,14 +36,14 @@ impl BranchRawConfig {
     /// rule for a detached HEAD, a detached HEAD is allowed.
     ///
     /// Resolves the rules before reading the current branch from `git`, so
-    /// that rules that cannot be resolved are reported without running git.
+    /// that rules that cannot be resolved are reported without reading it.
     pub fn resolve(
         self,
         git: &Git,
     ) -> Result<(BranchLintTarget, BranchLintRules), BranchResolveError> {
         let rules = BranchLintRules {
-            types: resolve_types(self.types, self.type_defaults)?,
-            protected: self.protected.resolve(ListName::Protected, &[])?,
+            types: resolve_types(self.types, self.type_defaults, git)?,
+            protected: self.protected.resolve(ListName::Protected, &[], git)?,
             detached: Self::resolve_detached(self.detached),
         };
         Self::check_matchable(&rules)?;

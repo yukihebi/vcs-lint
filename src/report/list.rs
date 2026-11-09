@@ -1,8 +1,12 @@
 //! Why a list option cannot be composed or holds values nothing can match,
 //! worded for the user.
 
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    path::PathBuf,
+};
 
+use super::git::GitSubdirsError;
 use crate::name_set::NameSet;
 
 /// A list option, named after what its values are.
@@ -31,6 +35,16 @@ impl ListName {
             Self::Protected => "--protected",
         }
     }
+
+    /// The option that adds the names of the subdirectories of a directory to
+    /// the list.
+    fn dir_option(self) -> &'static str {
+        match self {
+            Self::Types => "--type-dir",
+            Self::Scopes => "--scope-dir",
+            Self::Protected => "--protected-dir",
+        }
+    }
 }
 
 /// Why the values of a list option cannot be composed.
@@ -45,6 +59,13 @@ pub enum ListResolveError {
     },
     /// The list holds no value, but a value is needed for anything to pass.
     Empty { list: ListName },
+    /// The subdirectories of a directory given to the list cannot be read.
+    Dir {
+        list: ListName,
+        /// The directory as given.
+        dir: PathBuf,
+        cause: GitSubdirsError,
+    },
 }
 
 impl Display for ListResolveError {
@@ -69,6 +90,18 @@ impl Display for ListResolveError {
                 list.values(),
                 list.option()
             ),
+            Self::Dir { list, dir, cause } => {
+                write!(
+                    f,
+                    "cannot read the directories under `{}` for `{}`",
+                    dir.display(),
+                    list.dir_option()
+                )?;
+                for line in cause.to_string().lines() {
+                    write!(f, "\n  {line}")?;
+                }
+                Ok(())
+            }
         }
     }
 }

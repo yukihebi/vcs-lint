@@ -21,7 +21,7 @@ A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Sy
 vcs-lint branch --protected main
 vcs-lint branch feat/add-matcher --protected main
 vcs-lint commit .git/COMMIT_EDITMSG
-vcs-lint commit .git/COMMIT_EDITMSG --scope root,$(ls crates | paste -sd, -)
+vcs-lint commit .git/COMMIT_EDITMSG --scope root --scope-dir crates
 ```
 
 ```

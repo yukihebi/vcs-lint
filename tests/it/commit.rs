@@ -357,6 +357,9 @@ fn prints_help() {
               Allowed type, given as repeated flags or comma-separated values
               [defaults: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
 
+          --type-dir <DIR>
+              Directory whose subdirectories in the git index are allowed types, given as repeated flags or comma-separated values
+
           --type-exclude <TYPE>
               Type excluded from the allowed types, given as repeated flags or comma-separated values
 
@@ -371,6 +374,9 @@ fn prints_help() {
 
           --scope <SCOPE>
               Allowed scope, given as repeated flags or comma-separated values
+
+          --scope-dir <DIR>
+              Directory whose subdirectories in the git index are allowed scopes, given as repeated flags or comma-separated values
 
           --scope-exclude <SCOPE>
               Scope excluded from the allowed scopes, given as repeated flags or comma-separated values

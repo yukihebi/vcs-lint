@@ -7,6 +7,7 @@ use std::{fs, path::PathBuf};
 use super::{list::ListRawValues, matchable::ListRequirement, resolve_types};
 use crate::{
     cli::{TypeDefaultsClapMode, commit::CommitScopeClapMode},
+    git::Git,
     lint::commit::{CommitLintRules, CommitLintTarget, CommitScopeRule, header::CommitHeader},
     report::{commit::CommitResolveError, list::ListName},
 };
@@ -37,8 +38,12 @@ impl CommitRawConfig {
         wording: "a scope cannot contain a line break, and its parentheses must be balanced",
     };
 
-    /// Resolves the rules before reading the message file.
-    pub fn resolve(self) -> Result<(CommitLintTarget, CommitLintRules), CommitResolveError> {
+    /// Resolves the rules, reading directories given to them from `git`,
+    /// before reading the message file.
+    pub fn resolve(
+        self,
+        git: &Git,
+    ) -> Result<(CommitLintTarget, CommitLintRules), CommitResolveError> {
         let Self {
             file,
             types,
@@ -47,8 +52,8 @@ impl CommitRawConfig {
             scope_mode,
         } = self;
         let rules = CommitLintRules {
-            types: resolve_types(types, type_defaults)?,
-            scopes: Self::resolve_scopes(scope_mode, scopes)?,
+            types: resolve_types(types, type_defaults, git)?,
+            scopes: Self::resolve_scopes(scope_mode, scopes, git)?,
         };
         Self::check_matchable(&rules)?;
         let text = fs::read_to_string(&file)
@@ -63,10 +68,11 @@ impl CommitRawConfig {
     fn resolve_scopes(
         mode: Option<CommitScopeClapMode>,
         scopes: ListRawValues,
+        git: &Git,
     ) -> Result<CommitScopeRule, CommitResolveError> {
         let mode = mode.unwrap_or(CommitScopeClapMode::Auto);
-        let given = scopes.given.is_some();
-        let allowed = scopes.resolve(ListName::Scopes, &[])?;
+        let given = scopes.is_given();
+        let allowed = scopes.resolve(ListName::Scopes, &[], git)?;
         match mode {
             CommitScopeClapMode::Auto if !given => Ok(CommitScopeRule::Forbidden),
             CommitScopeClapMode::Forbidden => Ok(CommitScopeRule::Forbidden),

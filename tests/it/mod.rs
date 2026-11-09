@@ -11,6 +11,7 @@ macro_rules! assert_status {
 mod branch;
 mod cli;
 mod commit;
+mod list_dir;
 mod workdir;
 
 use std::{

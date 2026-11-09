@@ -1,4 +1,4 @@
-use std::ffi::OsStr;
+use std::{ffi::OsStr, path::Path};
 
 use super::GitCommand;
 use crate::report::git::GitError;
@@ -62,6 +62,38 @@ fn fails_with_status_and_standard_error_when_command_fails() {
     assert_eq!(status.code(), Some(129));
     assert!(!stderr.is_empty());
     assert_eq!(stderr, stderr.trim_end());
+}
+
+#[test]
+fn reads_standard_output_of_command_that_must_succeed() {
+    let stdout = git(&["version"]).read(stdout).unwrap();
+    assert!(stdout.starts_with(b"git version "));
+}
+
+#[test]
+fn fails_when_command_that_must_succeed_finds_nothing() {
+    let result = git(&["config", "--get", "vcs-lint.no-such-key"]).read(stdout);
+    let Err(GitError::Failed {
+        command, status, ..
+    }) = result
+    else {
+        panic!("expected a failure, got {result:?}");
+    };
+    assert_eq!(command, "git config --get vcs-lint.no-such-key");
+    assert_eq!(status.code(), Some(1));
+}
+
+#[test]
+fn shows_path_arguments_in_command() {
+    let result = GitCommand::new(
+        OsStr::new("git"),
+        &[OsStr::new("ls-files"), Path::new("no such/dir").as_os_str()],
+    )
+    .read(|_| None::<()>);
+    let Err(GitError::UnexpectedOutput { command, .. }) = result else {
+        panic!("expected unexpected output, got {result:?}");
+    };
+    assert_eq!(command, "git ls-files no such/dir");
 }
 
 #[test]

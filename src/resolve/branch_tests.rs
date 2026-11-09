@@ -22,6 +22,7 @@ fn set(names: &[&str]) -> NameSet {
 fn raw(given: Option<&[&str]>, excluded: &[&str]) -> ListRawValues {
     ListRawValues {
         given: given.map(strings),
+        dirs: None,
         excluded: strings(excluded),
     }
 }

@@ -6,6 +6,8 @@ use std::{
     process::{ExitStatus, Output},
 };
 
+use derive_more::Display;
+
 /// Why a git command does not give what is asked of it.
 #[derive(Debug, PartialEq, Eq)]
 pub enum GitError {
@@ -72,5 +74,44 @@ impl Display for GitError {
                 write!(f, "unexpected output from `{command}`: {stdout:?}")
             }
         }
+    }
+}
+
+/// Why the directories under a directory cannot be read from the index.
+#[derive(Debug, PartialEq, Eq, Display)]
+pub enum GitSubdirsError {
+    #[display("no such directory")]
+    NotFound,
+    /// The directory cannot be resolved to its real path for another reason.
+    #[display("cannot resolve the directory: {_0}")]
+    Unresolvable(ErrorKind),
+    #[display("not a directory")]
+    NotDirectory,
+    /// The directory is not in the work tree of the repository git finds
+    /// from the current directory.
+    #[display("outside the work tree")]
+    OutsideWorkTree,
+    /// The name of a directory under it is not UTF-8, shown with invalid
+    /// bytes replaced.
+    #[display("a directory name is not UTF-8: {_0:?}")]
+    NonUtf8Name(String),
+    #[display("{_0}")]
+    Git(GitError),
+}
+
+impl GitSubdirsError {
+    /// Why the directory cannot be resolved to its real path.
+    pub fn unresolvable(err: &io::Error) -> Self {
+        match err.kind() {
+            ErrorKind::NotFound => Self::NotFound,
+            ErrorKind::NotADirectory => Self::NotDirectory,
+            kind => Self::Unresolvable(kind),
+        }
+    }
+}
+
+impl From<GitError> for GitSubdirsError {
+    fn from(err: GitError) -> Self {
+        Self::Git(err)
     }
 }

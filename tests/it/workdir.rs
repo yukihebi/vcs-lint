@@ -4,6 +4,7 @@
 use std::{
     env,
     ffi::OsStr,
+    fs,
     path::Path,
     process::{Command, Output},
 };
@@ -39,6 +40,24 @@ impl Workdir {
             "git {args:?}: {}",
             String::from_utf8_lossy(&stderr)
         );
+    }
+
+    /// Runs git with `args` in `dir`, a directory of the workdir, to see how it
+    /// ends.
+    pub fn git_in(&self, dir: &str, args: &[&str]) -> BinaryOutput {
+        BinaryOutput::of(
+            self.command("git")
+                .current_dir(self.path().join(dir))
+                .args(args),
+        )
+    }
+
+    /// Writes `contents` to `path`, a file of the workdir, creating the
+    /// directories it is in.
+    pub fn write(&self, path: &str, contents: &str) {
+        let path = self.path().join(path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, contents).unwrap();
     }
 
     /// Commits nothing on the current branch.

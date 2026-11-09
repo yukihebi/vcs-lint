@@ -38,7 +38,7 @@ fn run_command(command: ClapCommand) -> RunStatus {
             }
         }
         ClapCommand::Commit(args) => {
-            let (target, rules) = match args.into_raw_config().resolve() {
+            let (target, rules) = match args.into_raw_config().resolve(&Git) {
                 Ok(resolved) => resolved,
                 Err(err) => return RunStatus::CommitResolveError(err),
             };

@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::{ffi::OsString, path::PathBuf};
 
 use clap::error::ErrorKind;
 
@@ -39,7 +39,15 @@ fn values(values: &[&str]) -> Option<Vec<String>> {
 fn raw(given: Option<&[&str]>, excluded: &[&str]) -> ListRawValues {
     ListRawValues {
         given: given.map(strings),
+        dirs: None,
         excluded: strings(excluded),
+    }
+}
+
+fn with_dirs(raw: ListRawValues, dirs: &[&str]) -> ListRawValues {
+    ListRawValues {
+        dirs: Some(dirs.iter().map(PathBuf::from).collect()),
+        ..raw
     }
 }
 
@@ -50,12 +58,16 @@ fn branch_takes_arguments_and_options() {
             "feat/x",
             "--type",
             "feat",
+            "--type-dir",
+            "kinds",
             "--type-exclude",
             "fix",
             "--type-defaults",
             "always",
             "--protected",
             "main",
+            "--protected-dir",
+            "releases",
             "--protected-exclude",
             "develop",
             "--detached",
@@ -63,9 +75,9 @@ fn branch_takes_arguments_and_options() {
         ]),
         BranchRawConfig {
             branch: Some("feat/x".to_owned()),
-            types: raw(Some(&["feat"]), &["fix"]),
+            types: with_dirs(raw(Some(&["feat"]), &["fix"]), &["kinds"]),
             type_defaults: Some(TypeDefaultsClapMode::Always),
-            protected: raw(Some(&["main"]), &["develop"]),
+            protected: with_dirs(raw(Some(&["main"]), &["develop"]), &["releases"]),
             detached: Some(BranchDetachedClapRule::Deny),
         }
     );
@@ -123,6 +135,20 @@ fn exclusions_accept_list_forms() {
 }
 
 #[test]
+fn dirs_accept_list_forms_without_giving_values() {
+    assert_eq!(
+        commit(&[
+            "missing",
+            "--scope-dir",
+            " ./crates/ ,,apps",
+            "--scope-dir=../libs"
+        ])
+        .scopes,
+        with_dirs(raw(None, &[]), &["./crates/", "apps", "../libs"])
+    );
+}
+
+#[test]
 fn lists_accept_comma_separated_values() {
     assert_eq!(
         branch(&["feat/x", "--type", "feat,fix"]).types.given,
@@ -169,12 +195,16 @@ fn lists_drop_empty_values_beside_others() {
 fn lists_reject_flag_without_values() {
     for (command, option) in [
         (&["branch", "feat/x"][..], "--type"),
+        (&["branch", "feat/x"], "--type-dir"),
         (&["branch", "feat/x"], "--type-exclude"),
         (&["branch", "feat/x"], "--protected"),
+        (&["branch", "feat/x"], "--protected-dir"),
         (&["branch", "feat/x"], "--protected-exclude"),
         (&["commit", "missing"], "--type"),
+        (&["commit", "missing"], "--type-dir"),
         (&["commit", "missing"], "--type-exclude"),
         (&["commit", "missing"], "--scope"),
+        (&["commit", "missing"], "--scope-dir"),
         (&["commit", "missing"], "--scope-exclude"),
     ] {
         for written in [&["", "x"][..], &["x", ","], &[" , \t"]] {
@@ -213,8 +243,12 @@ fn commit_keeps_file_without_reading_it() {
             "feat",
             "--type-defaults",
             "never",
+            "--type-dir",
+            "kinds",
             "--scope",
             "core,cli",
+            "--scope-dir",
+            "crates",
             "--scope-exclude",
             "root",
             "--scope-mode",
@@ -222,9 +256,9 @@ fn commit_keeps_file_without_reading_it() {
         ]),
         CommitRawConfig {
             file: "missing".into(),
-            types: raw(Some(&["feat"]), &[]),
+            types: with_dirs(raw(Some(&["feat"]), &[]), &["kinds"]),
             type_defaults: Some(TypeDefaultsClapMode::Never),
-            scopes: raw(Some(&["core", "cli"]), &["root"]),
+            scopes: with_dirs(raw(Some(&["core", "cli"]), &["root"]), &["crates"]),
             scope_mode: Some(CommitScopeClapMode::Optional),
         }
     );
