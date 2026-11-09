@@ -63,5 +63,5 @@ success.
 |---|---|
 | `0` | No violation, or help or the version was printed. |
 | `1` | A violation was found. |
-| `2` | An input could not be read, or the options give rules that cannot be applied, so nothing was linted. |
+| `2` | A runtime error occurred, so nothing was linted. |
 | `3` | The command line is syntactically invalid. |
