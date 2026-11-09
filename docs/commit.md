@@ -48,6 +48,9 @@ exec vcs-lint commit "$1" --scope root,$(ls crates | paste -sd, -)
   [list option](cli.md#list-options).
 - `--scope <SCOPE>`: gives the [allowed scopes](#definitions). A
   [list option](cli.md#list-options).
+- `--scope-mode <MODE>`: whether headers have a scope, `auto`, `required`,
+  `optional` or `forbidden` (see [Scope mode](#scope-mode)). `auto` when not
+  given.
 - `-h`, `--help`: print help.
 
 ## Rules
@@ -88,17 +91,35 @@ A message with no line left fails with `commit message is empty`.
 | `fixup!feat: x` | linted: no space after `!` |
 | `Revert "feat: add matcher"` | linted: malformed header |
 
+### Scope mode
+
+`--scope-mode` decides whether the header has a scope:
+
+| `--scope-mode` | Header |
+|---|---|
+| `required` | `<type>(<scope>): <subject>` |
+| `optional` | `<type>(<scope>): <subject>` or `<type>: <subject>` |
+| `forbidden` | `<type>: <subject>` |
+| `auto`, or not given | as `required` when any scope is given, as `forbidden` otherwise |
+
+`required` and `optional` need at least one `--scope`; without one, the
+command line is syntactically invalid. `forbidden` ignores the `--scope`
+values.
+
+A malformed header is reported with the form of the mode, written
+`<type>[(<scope>)]: <subject>` for `optional`.
+
 ### Header
 
-The header is `<type>: <subject>` when the allowed scopes are empty, and
-`<type>(<scope>): <subject>` otherwise, where:
+The header takes the form of the [scope mode](#scope-mode), where:
 
 - `<type>` is one of the allowed types.
 - `<scope>` is one of the allowed scopes.
 - `:` is followed by exactly one space.
 - `<subject>` is not empty.
 
-With allowed types `feat`, `fix` and no allowed scopes:
+With allowed types `feat`, `fix` and no allowed scopes, so with scopes
+forbidden:
 
 | Header | Result |
 |---|---|
@@ -111,7 +132,8 @@ With allowed types `feat`, `fix` and no allowed scopes:
 | `add matcher` | malformed header |
 | `feat!: add matcher` | malformed header: `!` is not recognized |
 
-With allowed types `feat`, `fix` and allowed scopes `root`, `core`:
+With allowed types `feat`, `fix` and allowed scopes `root`, `core`, so with
+scopes required:
 
 | Header | Result |
 |---|---|
@@ -120,3 +142,13 @@ With allowed types `feat`, `fix` and allowed scopes `root`, `core`:
 | `feat(parser): add matcher` | unknown scope `parser` |
 | `feat(): add matcher` | unknown scope (empty) |
 | `feature(parser):add matcher` | unknown type, unknown scope and spacing, reported together |
+
+With allowed types `feat`, `fix`, allowed scopes `root`, `core` and
+`--scope-mode optional`:
+
+| Header | Result |
+|---|---|
+| `feat(core): add matcher` | OK |
+| `feat: add matcher` | OK |
+| `feat(parser): add matcher` | unknown scope `parser` |
+| `feat(): add matcher` | unknown scope (empty) |

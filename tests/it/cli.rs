@@ -74,6 +74,23 @@ fn rejects_list_flag_without_values() {
     ");
 }
 
+#[test]
+fn rejects_scope_mode_needing_scopes_without_them() {
+    let run = Run::new(&["commit", "missing", "--scope-mode", "required"]);
+    assert_status!(run, RunStatus::SyntaxError(_));
+    assert_snapshot!(run, @"
+    exit: 3
+    --- stdout
+    --- stderr
+    error: the following required arguments were not provided:
+      --scope <SCOPE>
+
+    Usage: vcs-lint commit --scope-mode <MODE> --scope <SCOPE> <FILE>
+
+    For more information, try '--help'.
+    ");
+}
+
 #[cfg(unix)]
 #[test]
 fn rejects_non_utf8_argument() {

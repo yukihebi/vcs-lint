@@ -4,6 +4,7 @@ use tempfile::NamedTempFile;
 
 use super::CommitRawConfig;
 use crate::{
+    cli::commit::CommitScopeClapMode,
     lint::commit::{CommitLintRules, CommitLintTarget, CommitScopeRule},
     name_set::NameSet,
     report::commit::CommitResolveError,
@@ -29,6 +30,7 @@ fn config(file: PathBuf, scopes: Option<Vec<String>>) -> CommitRawConfig {
         file,
         types: None,
         scopes,
+        scope_mode: None,
     }
 }
 
@@ -43,6 +45,7 @@ fn reads_header_from_message_file() {
         file: file.path().to_owned(),
         types: values(&["feat", "fix"]),
         scopes: values(&["core", "cli", "core"]),
+        scope_mode: None,
     };
     assert_eq!(
         config.resolve().unwrap(),
@@ -66,6 +69,48 @@ fn forbids_scopes_and_allows_default_types_when_omitted() {
             types: set(&DEFAULT_TYPES),
             scopes: CommitScopeRule::Forbidden,
         }
+    );
+}
+
+#[test]
+fn auto_requires_scopes_only_when_given() {
+    for mode in [None, Some(CommitScopeClapMode::Auto)] {
+        assert_eq!(
+            CommitRawConfig::resolve_scopes(mode, values(&["core", "cli"])),
+            CommitScopeRule::Required(set(&["core", "cli"])),
+            "{mode:?}"
+        );
+        assert_eq!(
+            CommitRawConfig::resolve_scopes(mode, None),
+            CommitScopeRule::Forbidden,
+            "{mode:?}"
+        );
+    }
+}
+
+#[test]
+fn required_and_optional_allow_given_scopes() {
+    assert_eq!(
+        CommitRawConfig::resolve_scopes(
+            Some(CommitScopeClapMode::Required),
+            values(&["core", "cli", "core"])
+        ),
+        CommitScopeRule::Required(set(&["core", "cli"]))
+    );
+    assert_eq!(
+        CommitRawConfig::resolve_scopes(
+            Some(CommitScopeClapMode::Optional),
+            values(&["core", "cli", "core"])
+        ),
+        CommitScopeRule::Optional(set(&["core", "cli"]))
+    );
+}
+
+#[test]
+fn forbidden_ignores_given_scopes() {
+    assert_eq!(
+        CommitRawConfig::resolve_scopes(Some(CommitScopeClapMode::Forbidden), values(&["core"])),
+        CommitScopeRule::Forbidden
     );
 }
 

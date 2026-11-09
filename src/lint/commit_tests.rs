@@ -35,6 +35,14 @@ fn scoped() -> CommitLintRules {
     }
 }
 
+/// Rules of a repository whose headers may leave out the scope.
+fn optionally_scoped() -> CommitLintRules {
+    CommitLintRules {
+        types: types(),
+        scopes: CommitScopeRule::Optional(scopes()),
+    }
+}
+
 fn lint(header: &str, rules: &CommitLintRules) -> Result<(), CommitLintError> {
     rules.lint(&CommitLintTarget::Header(header.to_owned()))
 }
@@ -150,6 +158,31 @@ fn scoped_rejects_unknown_scope() {
 }
 
 #[test]
+fn optionally_scoped_accepts_header_with_or_without_scope() {
+    for header in ["feat: add matcher", "fix(core): handle empty input"] {
+        assert_eq!(lint(header, &optionally_scoped()), Ok(()), "{header}");
+    }
+}
+
+#[test]
+fn optionally_scoped_rejects_unknown_scope() {
+    for (header, found) in [("feat(parser): add matcher", "parser"), ("feat(): x", "")] {
+        assert_eq!(
+            lint(header, &optionally_scoped()),
+            Parts {
+                scope: Some(CommitScopeViolation::Unknown {
+                    found: found.to_owned(),
+                    allowed: scopes(),
+                }),
+                ..Parts::default()
+            }
+            .of(header),
+            "{header}"
+        );
+    }
+}
+
+#[test]
 fn malformed_header_shows_form_without_scope() {
     assert_eq!(
         lint("add matcher", &unscoped()),
@@ -167,6 +200,17 @@ fn malformed_header_shows_form_with_scope() {
         Err(CommitLintError::Malformed {
             header: "add matcher".to_owned(),
             expected: "<type>(<scope>): <subject>",
+        })
+    );
+}
+
+#[test]
+fn malformed_header_shows_form_with_optional_scope() {
+    assert_eq!(
+        lint("add matcher", &optionally_scoped()),
+        Err(CommitLintError::Malformed {
+            header: "add matcher".to_owned(),
+            expected: "<type>[(<scope>)]: <subject>",
         })
     );
 }
