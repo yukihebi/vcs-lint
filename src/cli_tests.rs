@@ -187,9 +187,11 @@ fn commit_options_are_none_when_omitted() {
 }
 
 #[test]
-fn scope_mode_accepts_auto_and_forbidden_without_scopes() {
+fn scope_mode_accepts_each_mode_without_scopes() {
     for (written, mode) in [
         ("auto", CommitScopeClapMode::Auto),
+        ("required", CommitScopeClapMode::Required),
+        ("optional", CommitScopeClapMode::Optional),
         ("forbidden", CommitScopeClapMode::Forbidden),
     ] {
         assert_eq!(
@@ -198,14 +200,6 @@ fn scope_mode_accepts_auto_and_forbidden_without_scopes() {
             "{written}"
         );
     }
-}
-
-#[test]
-fn scope_mode_accepts_required_with_scopes() {
-    assert_eq!(
-        commit(&["missing", "--scope-mode", "required", "--scope", "core"]).scope_mode,
-        Some(CommitScopeClapMode::Required)
-    );
 }
 
 #[test]
@@ -238,14 +232,6 @@ fn rejects_command_line_outside_syntax() {
         (
             &["branch", "HEAD", "--detached", "allow,deny"],
             ErrorKind::InvalidValue,
-        ),
-        (
-            &["commit", "missing", "--scope-mode", "required"],
-            ErrorKind::MissingRequiredArgument,
-        ),
-        (
-            &["commit", "missing", "--scope-mode", "optional"],
-            ErrorKind::MissingRequiredArgument,
         ),
     ] {
         let Err(err) = parse(args) else {

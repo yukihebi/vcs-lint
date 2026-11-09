@@ -23,7 +23,7 @@ pub struct CommitRawConfig {
 }
 
 impl CommitRawConfig {
-    /// Reads the message file.
+    /// Resolves the rules before reading the message file.
     pub fn resolve(self) -> Result<(CommitLintTarget, CommitLintRules), CommitResolveError> {
         let Self {
             file,
@@ -31,34 +31,34 @@ impl CommitRawConfig {
             scopes,
             scope_mode,
         } = self;
-        let text =
-            fs::read_to_string(&file).map_err(|source| CommitResolveError { file, source })?;
-        let target = CommitMessage(&text).resolve();
         let rules = CommitLintRules {
             types: resolve_types(types),
-            scopes: Self::resolve_scopes(scope_mode, scopes),
+            scopes: Self::resolve_scopes(scope_mode, scopes)?,
         };
+        let text = fs::read_to_string(&file)
+            .map_err(|source| CommitResolveError::Unreadable { file, source })?;
+        let target = CommitMessage(&text).resolve();
         Ok((target, rules))
     }
 
     /// Without a mode, the mode is `auto`: a scope is required when any is
-    /// given and forbidden otherwise.
+    /// given and forbidden otherwise. A mode that lets headers have a scope
+    /// fails when no scope is allowed.
     fn resolve_scopes(
         mode: Option<CommitScopeClapMode>,
         scopes: Option<Vec<String>>,
-    ) -> CommitScopeRule {
-        let allowed = scopes.map(NameSet::from_iter);
+    ) -> Result<CommitScopeRule, CommitResolveError> {
+        let mode = mode.unwrap_or(CommitScopeClapMode::Auto);
+        let given = scopes.is_some();
+        let allowed: NameSet = scopes.into_iter().flatten().collect();
         match mode {
-            None | Some(CommitScopeClapMode::Auto) => {
-                allowed.map_or(CommitScopeRule::Forbidden, CommitScopeRule::Required)
+            CommitScopeClapMode::Auto if !given => Ok(CommitScopeRule::Forbidden),
+            CommitScopeClapMode::Forbidden => Ok(CommitScopeRule::Forbidden),
+            _ if allowed.is_empty() => Err(CommitResolveError::NoScopes { mode }),
+            CommitScopeClapMode::Auto | CommitScopeClapMode::Required => {
+                Ok(CommitScopeRule::Required(allowed))
             }
-            Some(CommitScopeClapMode::Required) => {
-                CommitScopeRule::Required(allowed.unwrap_or_default())
-            }
-            Some(CommitScopeClapMode::Optional) => {
-                CommitScopeRule::Optional(allowed.unwrap_or_default())
-            }
-            Some(CommitScopeClapMode::Forbidden) => CommitScopeRule::Forbidden,
+            CommitScopeClapMode::Optional => Ok(CommitScopeRule::Optional(allowed)),
         }
     }
 }

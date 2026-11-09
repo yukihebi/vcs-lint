@@ -12,13 +12,16 @@ use std::{
 
 use derive_more::Display;
 
-use crate::name_set::NameSet;
+use crate::{cli::commit::CommitScopeClapMode, name_set::NameSet};
 
+/// Why what to lint or the rules cannot be resolved from the command line.
 #[derive(Debug, Display)]
-#[display("cannot read commit message file `{}`\n  {source}", file.display())]
-pub struct CommitResolveError {
-    pub file: PathBuf,
-    pub source: io::Error,
+pub enum CommitResolveError {
+    #[display("cannot read commit message file `{}`\n  {source}", file.display())]
+    Unreadable { file: PathBuf, source: io::Error },
+    /// The scope mode lets headers have a scope, but no scope is allowed.
+    #[display("scope mode `{mode}` needs at least one allowed scope\n  give one with `--scope`")]
+    NoScopes { mode: CommitScopeClapMode },
 }
 
 #[derive(Debug, PartialEq, Eq)]

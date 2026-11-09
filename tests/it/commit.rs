@@ -173,6 +173,19 @@ fn rejects_malformed_header_showing_optional_scope() {
 }
 
 #[test]
+fn fails_on_scope_mode_needing_scopes_without_them() {
+    let run = Run::commit("feat: add matcher\n", &["--scope-mode", "required"]);
+    assert_status!(run, RunStatus::CommitResolveError(_));
+    assert_snapshot!(run, @"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: scope mode `required` needs at least one allowed scope
+      give one with `--scope`
+    ");
+}
+
+#[test]
 fn rejects_malformed_header() {
     let run = Run::commit("add matcher\n", &SCOPES);
     assert_status!(run, RunStatus::CommitLintError(_));
