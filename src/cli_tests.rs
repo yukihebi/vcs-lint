@@ -30,12 +30,12 @@ fn values(values: &[&str]) -> Option<Vec<String>> {
 }
 
 #[test]
-fn branch_keeps_values_as_written() {
+fn branch_takes_arguments_and_options() {
     assert_eq!(
         branch(&[
             "feat/x",
             "--type",
-            " feat ",
+            "feat",
             "--protected",
             "main",
             "--detached",
@@ -43,7 +43,7 @@ fn branch_keeps_values_as_written() {
         ]),
         BranchRawConfig {
             branch: "feat/x".to_owned(),
-            types: values(&[" feat "]),
+            types: values(&["feat"]),
             protected: values(&["main"]),
             detached: Some(BranchDetachedClapRule::Deny),
         }
@@ -102,11 +102,46 @@ fn lists_accept_mixed_forms() {
 }
 
 #[test]
-fn lists_keep_empty_values() {
+fn lists_trim_values() {
     assert_eq!(
-        branch(&["feat/x", "--type", ",feat,", "--type", ""]).types,
-        values(&["", "feat", "", ""])
+        branch(&["feat/x", "--type", " feat ,\tfix", "--type", " docs"]).types,
+        values(&["feat", "fix", "docs"])
     );
+}
+
+#[test]
+fn lists_drop_empty_values_beside_others() {
+    assert_eq!(
+        branch(&["feat/x", "--type", ",feat,, ,fix,", "--type", "docs,"]).types,
+        values(&["feat", "fix", "docs"])
+    );
+}
+
+#[test]
+fn lists_reject_flag_without_values() {
+    for (command, option) in [
+        (&["branch", "feat/x"][..], "--type"),
+        (&["branch", "feat/x"], "--protected"),
+        (&["commit", "missing"], "--type"),
+        (&["commit", "missing"], "--scope"),
+    ] {
+        for written in [&["", "x"][..], &["x", ","], &[" , \t"]] {
+            let flags = written.iter().flat_map(|value| [option, value]);
+            let args: Vec<&str> = command.iter().copied().chain(flags).collect();
+            let Err(err) = parse(&args) else {
+                panic!("{args:?} parsed");
+            };
+            assert_eq!(err.kind(), ErrorKind::ValueValidation, "{args:?}");
+        }
+    }
+}
+
+#[test]
+fn lists_reject_flag_given_empty_value_with_equals_sign() {
+    let Err(err) = parse(&["branch", "feat/x", "--protected="]) else {
+        panic!("parsed");
+    };
+    assert_eq!(err.kind(), ErrorKind::ValueValidation);
 }
 
 #[test]

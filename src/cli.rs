@@ -1,7 +1,9 @@
 //! Command line syntax: what was written, before any of it is interpreted.
 //!
 //! List options accept both repeated flags and comma-separated values, so a
-//! list can be written by hand or assembled by a shell.
+//! list can be written by hand or assembled by a shell. Each flag must give a
+//! value, so a substitution that comes out empty is reported rather than
+//! dropped.
 
 pub mod branch;
 pub mod commit;
@@ -60,10 +62,10 @@ struct TypeClapArgs {
     #[arg(
         long = "type",
         value_name = "TYPE",
-        value_delimiter = ',',
+        value_parser = ListClapValues::parse,
         help = TypeClapArgs::help(),
     )]
-    types: Option<Vec<String>>,
+    types: Option<Vec<ListClapValues>>,
 }
 
 impl TypeClapArgs {
@@ -72,6 +74,35 @@ impl TypeClapArgs {
             "Allowed type, given as repeated flags or comma-separated values\n[default: {}]",
             DEFAULT_TYPES.join(", ")
         )
+    }
+}
+
+/// The values one flag of a list option gives: its comma-separated values,
+/// trimmed of surrounding whitespace, without empty values; at least one is
+/// left.
+#[derive(Debug, Clone)]
+struct ListClapValues(Vec<String>);
+
+impl ListClapValues {
+    /// Parses what one flag was given, failing when every value is empty.
+    fn parse(written: &str) -> Result<Self, &'static str> {
+        let values: Vec<String> = written
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(String::from)
+            .collect();
+        if values.is_empty() {
+            Err("every value is empty")
+        } else {
+            Ok(Self(values))
+        }
+    }
+
+    /// The values of every flag of a list option in the order written, `None`
+    /// when the option is omitted.
+    fn concat(flags: Option<Vec<Self>>) -> Option<Vec<String>> {
+        flags.map(|flags| flags.into_iter().flat_map(|flag| flag.0).collect())
     }
 }
 

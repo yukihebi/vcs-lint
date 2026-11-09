@@ -12,23 +12,10 @@ pub const DEFAULT_TYPES: [&str; 11] = [
     "feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert",
 ];
 
-/// Interprets the values of `--type`, falling back to [`DEFAULT_TYPES`].
+/// Interprets the values of `--type`, falling back to [`DEFAULT_TYPES`] when
+/// it is omitted.
 fn resolve_types(values: Option<Vec<String>>) -> NameSet {
-    resolve_list(values).unwrap_or_else(|| DEFAULT_TYPES.into_iter().collect())
-}
-
-/// Interprets the values of a list option as written, `None` when omitted.
-///
-/// Values are trimmed of surrounding whitespace and empty values are dropped;
-/// a list left without values is `None`, as if the option were omitted.
-fn resolve_list(values: Option<Vec<String>>) -> Option<NameSet> {
-    let values = values?;
-    let names: Vec<&str> = values
-        .iter()
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .collect();
-    (!names.is_empty()).then(|| names.into_iter().collect())
+    values.map_or_else(|| DEFAULT_TYPES.into_iter().collect(), NameSet::from_iter)
 }
 
 #[cfg(test)]

@@ -35,8 +35,8 @@ fn detached_rule(rule: Option<BranchDetachedClapRule>) -> BranchDetachedRule {
 fn takes_branch_as_target_and_interprets_lists() {
     let config = BranchRawConfig {
         branch: "feat/x".to_owned(),
-        types: values(&["feat", " fix", "feat"]),
-        protected: values(&["main,", "", "develop"]),
+        types: values(&["feat", "fix", "feat"]),
+        protected: values(&["main", "develop", "main"]),
         detached: Some(BranchDetachedClapRule::Deny),
     };
     assert_eq!(
@@ -45,7 +45,7 @@ fn takes_branch_as_target_and_interprets_lists() {
             BranchLintTarget::Branch("feat/x".to_owned()),
             BranchLintRules {
                 types: set(&["feat", "fix"]),
-                protected: set(&["main,", "develop"]),
+                protected: set(&["main", "develop"]),
                 detached: BranchDetachedRule::Forbidden,
             }
         )
@@ -79,15 +79,6 @@ fn protects_nothing_and_allows_default_types_and_detached_head_when_omitted() {
             detached: BranchDetachedRule::Allowed,
         }
     );
-}
-
-#[test]
-fn protects_nothing_when_every_value_is_empty() {
-    let config = BranchRawConfig {
-        protected: values(&["", " "]),
-        ..config("main")
-    };
-    assert_eq!(config.resolve().1.protected, NameSet::default());
 }
 
 #[test]

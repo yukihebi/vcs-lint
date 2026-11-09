@@ -2,7 +2,7 @@
 
 use clap::{Args, ValueEnum};
 
-use super::TypeClapArgs;
+use super::{ListClapValues, TypeClapArgs};
 use crate::resolve::branch::BranchRawConfig;
 
 #[derive(Debug, Args)]
@@ -14,8 +14,12 @@ pub struct BranchClapArgs {
     types: TypeClapArgs,
     /// Branch that must not be committed to directly, given as repeated flags
     /// or comma-separated values
-    #[arg(long = "protected", value_name = "BRANCH", value_delimiter = ',')]
-    protected: Option<Vec<String>>,
+    #[arg(
+        long = "protected",
+        value_name = "BRANCH",
+        value_parser = ListClapValues::parse
+    )]
+    protected: Option<Vec<ListClapValues>>,
     #[arg(
         long = "detached",
         value_name = "RULE",
@@ -37,8 +41,8 @@ impl BranchClapArgs {
     pub fn into_raw_config(self) -> BranchRawConfig {
         BranchRawConfig {
             branch: self.branch,
-            types: self.types.types,
-            protected: self.protected,
+            types: ListClapValues::concat(self.types.types),
+            protected: ListClapValues::concat(self.protected),
             detached: self.detached,
         }
     }

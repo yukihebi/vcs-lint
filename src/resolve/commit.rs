@@ -4,14 +4,15 @@ mod message;
 
 use std::{fs, path::PathBuf};
 
-use super::{resolve_list, resolve_types};
+use super::resolve_types;
 use crate::{
     lint::commit::{CommitLintRules, CommitLintTarget, CommitScopeRule},
+    name_set::NameSet,
     report::commit::CommitResolveError,
 };
 use message::CommitMessage;
 
-/// The `commit` command line, with its values as written.
+/// The `commit` command line as parsed, before it is interpreted.
 #[derive(Debug, PartialEq, Eq)]
 pub struct CommitRawConfig {
     pub file: PathBuf,
@@ -32,7 +33,8 @@ impl CommitRawConfig {
         let target = CommitMessage(&text).resolve();
         let rules = CommitLintRules {
             types: resolve_types(types),
-            scopes: resolve_list(scopes)
+            scopes: scopes
+                .map(NameSet::from_iter)
                 .map_or(CommitScopeRule::Forbidden, CommitScopeRule::Required),
         };
         Ok((target, rules))

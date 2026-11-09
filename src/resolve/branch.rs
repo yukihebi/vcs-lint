@@ -1,12 +1,13 @@
 //! Interpretation of the `branch` command.
 
-use super::{resolve_list, resolve_types};
+use super::resolve_types;
 use crate::{
     cli::branch::BranchDetachedClapRule,
     lint::branch::{BranchDetachedRule, BranchLintRules, BranchLintTarget},
+    name_set::NameSet,
 };
 
-/// The `branch` command line, with its values as written.
+/// The `branch` command line as parsed, before it is interpreted.
 #[derive(Debug, PartialEq, Eq)]
 pub struct BranchRawConfig {
     pub branch: String,
@@ -22,7 +23,7 @@ impl BranchRawConfig {
         let target = Self::resolve_target(self.branch);
         let rules = BranchLintRules {
             types: resolve_types(self.types),
-            protected: resolve_list(self.protected).unwrap_or_default(),
+            protected: self.protected.map(NameSet::from_iter).unwrap_or_default(),
             detached: Self::resolve_detached(self.detached),
         };
         (target, rules)
