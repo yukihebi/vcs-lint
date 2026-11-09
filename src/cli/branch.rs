@@ -20,6 +20,14 @@ pub struct BranchClapArgs {
         value_parser = ListClapValues::parse
     )]
     protected: Option<Vec<ListClapValues>>,
+    /// Branch excluded from the protected branches, given as repeated flags or
+    /// comma-separated values
+    #[arg(
+        long = "protected-exclude",
+        value_name = "BRANCH",
+        value_parser = ListClapValues::parse
+    )]
+    protected_excluded: Option<Vec<ListClapValues>>,
     #[arg(
         long = "detached",
         value_name = "RULE",
@@ -39,10 +47,12 @@ pub enum BranchDetachedClapRule {
 
 impl BranchClapArgs {
     pub fn into_raw_config(self) -> BranchRawConfig {
+        let (types, type_defaults) = self.types.into_raw_values();
         BranchRawConfig {
             branch: self.branch,
-            types: ListClapValues::concat(self.types.types),
-            protected: ListClapValues::concat(self.protected),
+            types,
+            type_defaults,
+            protected: ListClapValues::into_raw_values(self.protected, self.protected_excluded),
             detached: self.detached,
         }
     }

@@ -2,8 +2,11 @@ use std::ffi::OsString;
 
 use clap::error::ErrorKind;
 
-use super::{ClapCommand, Parsed, branch::BranchDetachedClapRule, commit::CommitScopeClapMode};
-use crate::resolve::{branch::BranchRawConfig, commit::CommitRawConfig};
+use super::{
+    ClapCommand, Parsed, TypeDefaultsClapMode, branch::BranchDetachedClapRule,
+    commit::CommitScopeClapMode,
+};
+use crate::resolve::{branch::BranchRawConfig, commit::CommitRawConfig, list::ListRawValues};
 
 fn parse(args: &[&str]) -> Result<Parsed, clap::Error> {
     Parsed::parse(args.iter().map(OsString::from).collect())
@@ -25,8 +28,19 @@ fn commit(args: &[&str]) -> CommitRawConfig {
     args.into_raw_config()
 }
 
+fn strings(values: &[&str]) -> Vec<String> {
+    values.iter().copied().map(String::from).collect()
+}
+
 fn values(values: &[&str]) -> Option<Vec<String>> {
-    Some(values.iter().copied().map(String::from).collect())
+    Some(strings(values))
+}
+
+fn raw(given: Option<&[&str]>, excluded: &[&str]) -> ListRawValues {
+    ListRawValues {
+        given: given.map(strings),
+        excluded: strings(excluded),
+    }
 }
 
 #[test]
@@ -36,15 +50,22 @@ fn branch_takes_arguments_and_options() {
             "feat/x",
             "--type",
             "feat",
+            "--type-exclude",
+            "fix",
+            "--type-defaults",
+            "always",
             "--protected",
             "main",
+            "--protected-exclude",
+            "develop",
             "--detached",
             "deny"
         ]),
         BranchRawConfig {
             branch: "feat/x".to_owned(),
-            types: values(&["feat"]),
-            protected: values(&["main"]),
+            types: raw(Some(&["feat"]), &["fix"]),
+            type_defaults: Some(TypeDefaultsClapMode::Always),
+            protected: raw(Some(&["main"]), &["develop"]),
             detached: Some(BranchDetachedClapRule::Deny),
         }
     );
@@ -56,8 +77,9 @@ fn branch_options_are_none_when_omitted() {
         branch(&["feat/x"]),
         BranchRawConfig {
             branch: "feat/x".to_owned(),
-            types: None,
-            protected: None,
+            types: ListRawValues::default(),
+            type_defaults: None,
+            protected: ListRawValues::default(),
             detached: None,
         }
     );
@@ -74,15 +96,31 @@ fn detached_accepts_allow() {
 #[test]
 fn lists_accept_repeated_flags() {
     assert_eq!(
-        branch(&["feat/x", "--type", "feat", "--type", "fix"]).types,
+        branch(&["feat/x", "--type", "feat", "--type", "fix"])
+            .types
+            .given,
         values(&["feat", "fix"])
+    );
+}
+
+#[test]
+fn exclusions_accept_list_forms() {
+    assert_eq!(
+        branch(&[
+            "feat/x",
+            "--protected-exclude",
+            " main,,develop",
+            "--protected-exclude=release"
+        ])
+        .protected,
+        raw(None, &["main", "develop", "release"])
     );
 }
 
 #[test]
 fn lists_accept_comma_separated_values() {
     assert_eq!(
-        branch(&["feat/x", "--type", "feat,fix"]).types,
+        branch(&["feat/x", "--type", "feat,fix"]).types.given,
         values(&["feat", "fix"])
     );
 }
@@ -96,7 +134,8 @@ fn lists_accept_mixed_forms() {
             "main,develop",
             "--protected=release"
         ])
-        .protected,
+        .protected
+        .given,
         values(&["main", "develop", "release"])
     );
 }
@@ -104,7 +143,9 @@ fn lists_accept_mixed_forms() {
 #[test]
 fn lists_trim_values() {
     assert_eq!(
-        branch(&["feat/x", "--type", " feat ,\tfix", "--type", " docs"]).types,
+        branch(&["feat/x", "--type", " feat ,\tfix", "--type", " docs"])
+            .types
+            .given,
         values(&["feat", "fix", "docs"])
     );
 }
@@ -112,7 +153,9 @@ fn lists_trim_values() {
 #[test]
 fn lists_drop_empty_values_beside_others() {
     assert_eq!(
-        branch(&["feat/x", "--type", ",feat,, ,fix,", "--type", "docs,"]).types,
+        branch(&["feat/x", "--type", ",feat,, ,fix,", "--type", "docs,"])
+            .types
+            .given,
         values(&["feat", "fix", "docs"])
     );
 }
@@ -121,9 +164,13 @@ fn lists_drop_empty_values_beside_others() {
 fn lists_reject_flag_without_values() {
     for (command, option) in [
         (&["branch", "feat/x"][..], "--type"),
+        (&["branch", "feat/x"], "--type-exclude"),
         (&["branch", "feat/x"], "--protected"),
+        (&["branch", "feat/x"], "--protected-exclude"),
         (&["commit", "missing"], "--type"),
+        (&["commit", "missing"], "--type-exclude"),
         (&["commit", "missing"], "--scope"),
+        (&["commit", "missing"], "--scope-exclude"),
     ] {
         for written in [&["", "x"][..], &["x", ","], &[" , \t"]] {
             let flags = written.iter().flat_map(|value| [option, value]);
@@ -159,15 +206,20 @@ fn commit_keeps_file_without_reading_it() {
             "missing",
             "--type",
             "feat",
+            "--type-defaults",
+            "never",
             "--scope",
             "core,cli",
+            "--scope-exclude",
+            "root",
             "--scope-mode",
             "optional"
         ]),
         CommitRawConfig {
             file: "missing".into(),
-            types: values(&["feat"]),
-            scopes: values(&["core", "cli"]),
+            types: raw(Some(&["feat"]), &[]),
+            type_defaults: Some(TypeDefaultsClapMode::Never),
+            scopes: raw(Some(&["core", "cli"]), &["root"]),
             scope_mode: Some(CommitScopeClapMode::Optional),
         }
     );
@@ -179,11 +231,32 @@ fn commit_options_are_none_when_omitted() {
         commit(&["missing"]),
         CommitRawConfig {
             file: "missing".into(),
-            types: None,
-            scopes: None,
+            types: ListRawValues::default(),
+            type_defaults: None,
+            scopes: ListRawValues::default(),
             scope_mode: None,
         }
     );
+}
+
+#[test]
+fn type_defaults_accepts_each_mode_in_both_commands() {
+    for (written, mode) in [
+        ("auto", TypeDefaultsClapMode::Auto),
+        ("always", TypeDefaultsClapMode::Always),
+        ("never", TypeDefaultsClapMode::Never),
+    ] {
+        assert_eq!(
+            branch(&["feat/x", "--type-defaults", written]).type_defaults,
+            Some(mode),
+            "{written}"
+        );
+        assert_eq!(
+            commit(&["missing", "--type-defaults", written]).type_defaults,
+            Some(mode),
+            "{written}"
+        );
+    }
 }
 
 #[test]
@@ -231,6 +304,14 @@ fn rejects_command_line_outside_syntax() {
         ),
         (
             &["branch", "HEAD", "--detached", "allow,deny"],
+            ErrorKind::InvalidValue,
+        ),
+        (
+            &["branch", "feat/x", "--scope-exclude", "core"],
+            ErrorKind::UnknownArgument,
+        ),
+        (
+            &["branch", "feat/x", "--type-defaults", "on"],
             ErrorKind::InvalidValue,
         ),
     ] {

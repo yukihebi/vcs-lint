@@ -11,6 +11,11 @@ impl NameSet {
         self.0.iter().any(|n| n == name)
     }
 
+    /// The names in order.
+    pub fn iter(&self) -> impl Iterator<Item = &str> {
+        self.0.iter().map(String::as_str)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

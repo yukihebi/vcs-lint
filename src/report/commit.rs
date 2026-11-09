@@ -12,6 +12,7 @@ use std::{
 
 use derive_more::Display;
 
+use super::list::ListResolveError;
 use crate::{cli::commit::CommitScopeClapMode, name_set::NameSet};
 
 /// Why what to lint or the rules cannot be resolved from the command line.
@@ -19,9 +20,32 @@ use crate::{cli::commit::CommitScopeClapMode, name_set::NameSet};
 pub enum CommitResolveError {
     #[display("cannot read commit message file `{}`\n  {source}", file.display())]
     Unreadable { file: PathBuf, source: io::Error },
+    #[display("{_0}")]
+    List(ListResolveError),
     /// The scope mode lets headers have a scope, but no scope is allowed.
-    #[display("scope mode `{mode}` needs at least one allowed scope\n  give one with `--scope`")]
+    #[display("{}", CommitResolveError::no_scopes_message(*mode))]
     NoScopes { mode: CommitScopeClapMode },
+}
+
+impl CommitResolveError {
+    /// Under `auto`, a scope is needed only because scopes are given, so the
+    /// message names that instead of the mode, which may not be written.
+    fn no_scopes_message(mode: CommitScopeClapMode) -> String {
+        match mode {
+            CommitScopeClapMode::Auto => "scopes are given, but none is left allowed\n  \
+                 give one with `--scope`, or give none to forbid scopes"
+                .to_owned(),
+            _ => format!(
+                "scope mode `{mode}` needs at least one allowed scope\n  give one with `--scope`"
+            ),
+        }
+    }
+}
+
+impl From<ListResolveError> for CommitResolveError {
+    fn from(err: ListResolveError) -> Self {
+        Self::List(err)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

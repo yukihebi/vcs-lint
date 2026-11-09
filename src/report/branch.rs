@@ -7,7 +7,21 @@ use std::fmt::{self, Display, Formatter};
 
 use derive_more::Display;
 
+use super::list::ListResolveError;
 use crate::name_set::NameSet;
+
+/// Why the rules cannot be resolved from the command line.
+#[derive(Debug, PartialEq, Eq, Display)]
+pub enum BranchResolveError {
+    #[display("{_0}")]
+    List(ListResolveError),
+}
+
+impl From<ListResolveError> for BranchResolveError {
+    fn from(err: ListResolveError) -> Self {
+        Self::List(err)
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BranchLintError {

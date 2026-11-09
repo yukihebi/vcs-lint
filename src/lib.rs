@@ -26,7 +26,10 @@ pub fn run(args: Vec<OsString>) -> RunStatus {
 fn run_command(command: ClapCommand) -> RunStatus {
     match command {
         ClapCommand::Branch(args) => {
-            let (target, rules) = args.into_raw_config().resolve();
+            let (target, rules) = match args.into_raw_config().resolve() {
+                Ok(resolved) => resolved,
+                Err(err) => return RunStatus::BranchResolveError(err),
+            };
             match rules.lint(&target) {
                 Ok(()) => RunStatus::Success,
                 Err(err) => RunStatus::BranchLintError(err),

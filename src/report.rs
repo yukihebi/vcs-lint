@@ -2,10 +2,11 @@
 
 pub mod branch;
 pub mod commit;
+pub mod list;
 
 use std::{fmt::Display, process::ExitCode};
 
-use branch::BranchLintError;
+use branch::{BranchLintError, BranchResolveError};
 use commit::{CommitLintError, CommitResolveError};
 
 /// How a run ends, before anything is printed.
@@ -20,6 +21,8 @@ pub enum RunStatus {
     /// The command line does not follow the syntax of the commands. Exits
     /// with `3`.
     SyntaxError(clap::Error),
+    /// The rules cannot be resolved, so nothing is linted. Exits with `2`.
+    BranchResolveError(BranchResolveError),
     /// The commit message or the rules cannot be resolved, so nothing is
     /// linted. Exits with `2`.
     CommitResolveError(CommitResolveError),
@@ -42,6 +45,7 @@ impl RunStatus {
                 let _ = err.print();
                 ExitCode::from(3)
             }
+            Self::BranchResolveError(err) => Self::fail(err, 2),
             Self::CommitResolveError(err) => Self::fail(err, 2),
             Self::BranchLintError(err) => Self::fail(err, 1),
             Self::CommitLintError(err) => Self::fail(err, 1),
