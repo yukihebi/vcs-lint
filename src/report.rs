@@ -10,6 +10,7 @@ use commit::{CommitLintError, CommitResolveError};
 
 /// How a run ends, before anything is printed.
 #[derive(Debug)]
+#[must_use = "nothing is printed until the status is reported"]
 pub enum RunStatus {
     /// Nothing breaks a rule. Exits with `0`.
     Success,

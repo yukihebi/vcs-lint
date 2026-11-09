@@ -1,10 +1,10 @@
 //! Lints branch names and commit message headers against the types and scopes
 //! given on the command line.
 
-use std::{ffi::OsString, process::ExitCode};
+use std::ffi::OsString;
 
 use cli::{ClapCommand, Parsed};
-use report::RunStatus;
+pub use report::RunStatus;
 
 mod cli;
 mod lint;
@@ -12,12 +12,9 @@ mod name_set;
 mod report;
 mod resolve;
 
-/// Runs the command line `args`, which exclude the program name.
-pub fn run(args: Vec<OsString>) -> ExitCode {
-    run_status(args).report()
-}
-
-fn run_status(args: Vec<OsString>) -> RunStatus {
+/// Runs the command line `args`, which exclude the program name, without
+/// printing anything; [`RunStatus::report`] prints how it ends.
+pub fn run(args: Vec<OsString>) -> RunStatus {
     match Parsed::parse(args) {
         Ok(Parsed::Command(command)) => run_command(command),
         Ok(Parsed::Info(info)) => RunStatus::Info(info),
