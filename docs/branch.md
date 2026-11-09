@@ -21,22 +21,27 @@ error: invalid branch name `feature/Add_Matcher`
     allowed types: feat, fix
   invalid name `Add_Matcher`
     expected: lowercase kebab-case starting with a letter, e.g. `add-matcher`
+
+$ vcs-lint branch HEAD --detached deny
+error: commits on a detached HEAD are not allowed
+  switch to a branch or create one before committing
 ```
 
-As a Git `pre-commit` hook, linting the current branch. Choose the `branch=`
-line by what a detached HEAD should do. `git branch --show-current` is not
-recommended, as it prints nothing both on a detached HEAD and when it fails.
+As a Git `pre-commit` hook, linting the current branch.
+`git rev-parse --abbrev-ref HEAD` prints `HEAD` on a detached HEAD, which
+`--detached` then decides. `git branch --show-current` is not recommended, as
+it prints nothing both on a detached HEAD and when it fails.
 
 ```sh
 #!/bin/sh
-branch=$(git symbolic-ref --short HEAD) || exit     # a detached HEAD stops the hook
-# branch=$(git rev-parse --abbrev-ref HEAD) || exit # a detached HEAD is given as `HEAD`
-exec vcs-lint branch "$branch" --protected main
+branch=$(git rev-parse --abbrev-ref HEAD) || exit
+exec vcs-lint branch "$branch" --protected main --detached deny
 ```
 
 ## Arguments
 
-- `<NAME>`: the branch name to lint.
+- `<NAME>`: the branch name to lint, or `HEAD` for a
+  [detached HEAD](#detached-head).
 
 ## Options
 
@@ -44,6 +49,8 @@ exec vcs-lint branch "$branch" --protected main
   [list option](cli.md#list-options).
 - `--protected <BRANCH>`: gives the [protected branches](#definitions). A
   [list option](cli.md#list-options).
+- `--detached <RULE>`: whether a [detached HEAD](#detached-head) passes,
+  `allow` or `deny`. `allow` when not given.
 - `-h`, `--help`: print help.
 
 ## Rules
@@ -57,6 +64,21 @@ exec vcs-lint branch "$branch" --protected main
 - **Protected branches**: the `--protected` values. Empty when none are given.
 
 Values are matched exactly, including case.
+
+### Detached HEAD
+
+A `NAME` of exactly `HEAD` stands for a detached HEAD, as Git refuses `HEAD`
+as a branch name. A detached HEAD has no branch name, so neither the protected
+branches nor the format apply to it; `--detached` alone decides whether it
+passes.
+
+| `--detached` | Result for `HEAD` |
+|---|---|
+| `allow`, or not given | OK |
+| `deny` | commits on a detached HEAD not allowed |
+
+Any other `NAME`, such as `head` or `feat/HEAD`, is a branch name, linted as
+below.
 
 ### Protected branches
 

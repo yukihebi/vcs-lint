@@ -1,4 +1,4 @@
-use super::{BranchLintRules, BranchLintTarget};
+use super::{BranchDetachedRule, BranchLintRules, BranchLintTarget};
 use crate::{
     name_set::NameSet,
     report::branch::{BranchLintError, BranchNameViolation, BranchTypeViolation},
@@ -8,14 +8,20 @@ fn types() -> NameSet {
     ["feat", "fix"].into_iter().collect()
 }
 
-fn lint(branch: &str) -> Result<(), BranchLintError> {
-    let rules = BranchLintRules {
+fn rules(detached: BranchDetachedRule) -> BranchLintRules {
+    BranchLintRules {
         types: types(),
-        protected: ["main"].into_iter().collect(),
-    };
-    rules.lint(&BranchLintTarget {
-        branch: branch.to_owned(),
-    })
+        protected: ["main", "HEAD"].into_iter().collect(),
+        detached,
+    }
+}
+
+fn lint(branch: &str) -> Result<(), BranchLintError> {
+    rules(BranchDetachedRule::Allowed).lint(&BranchLintTarget::Branch(branch.to_owned()))
+}
+
+fn lint_detached(detached: BranchDetachedRule) -> Result<(), BranchLintError> {
+    rules(detached).lint(&BranchLintTarget::Detached)
 }
 
 fn invalid_parts(
@@ -129,5 +135,18 @@ fn reports_type_and_name_together() {
             unknown_type("feature"),
             invalid_name("Add_Matcher")
         )
+    );
+}
+
+#[test]
+fn accepts_allowed_detached_head_without_checking_protection_or_format() {
+    assert_eq!(lint_detached(BranchDetachedRule::Allowed), Ok(()));
+}
+
+#[test]
+fn rejects_forbidden_detached_head() {
+    assert_eq!(
+        lint_detached(BranchDetachedRule::Forbidden),
+        Err(BranchLintError::Detached)
     );
 }

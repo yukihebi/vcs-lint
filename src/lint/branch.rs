@@ -9,10 +9,13 @@ use crate::{
     report::branch::{BranchLintError, BranchNameViolation, BranchTypeViolation},
 };
 
-/// The branch a run lints.
+/// What a run lints.
 #[derive(Debug, PartialEq, Eq)]
-pub struct BranchLintTarget {
-    pub branch: String,
+pub enum BranchLintTarget {
+    /// A branch name.
+    Branch(String),
+    /// A detached HEAD, which has no branch name.
+    Detached,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -21,27 +24,42 @@ pub struct BranchLintRules {
     pub types: NameSet,
     /// Branches that must not receive direct commits.
     pub protected: NameSet,
+    pub detached: BranchDetachedRule,
+}
+
+/// Whether commits on a detached HEAD are allowed.
+#[derive(Debug, PartialEq, Eq)]
+pub enum BranchDetachedRule {
+    Allowed,
+    Forbidden,
 }
 
 impl BranchLintRules {
-    /// A protected branch fails on its own, without its format being checked.
+    /// A detached HEAD is checked against the detached HEAD rule alone.
     pub fn lint(&self, target: &BranchLintTarget) -> Result<(), BranchLintError> {
-        let branch = &target.branch;
+        match target {
+            BranchLintTarget::Branch(branch) => self.lint_branch(branch),
+            BranchLintTarget::Detached => self.detached.lint(),
+        }
+    }
+
+    /// A protected branch fails on its own, without its format being checked.
+    fn lint_branch(&self, branch: &str) -> Result<(), BranchLintError> {
         if self.protected.contains(branch) {
             return Err(BranchLintError::Protected {
-                branch: branch.clone(),
+                branch: branch.to_owned(),
             });
         }
         let Some((ty, name)) = branch.split_once('/') else {
             return Err(BranchLintError::Malformed {
-                branch: branch.clone(),
+                branch: branch.to_owned(),
                 allowed: self.types.clone(),
             });
         };
         match (self.lint_type(ty), Self::lint_name(name)) {
             (None, None) => Ok(()),
             (ty, name) => Err(BranchLintError::InvalidParts {
-                branch: branch.clone(),
+                branch: branch.to_owned(),
                 ty,
                 name,
             }),
@@ -62,6 +80,15 @@ impl BranchLintRules {
         (!KEBAB_CASE.is_match(name)).then(|| BranchNameViolation {
             found: name.to_owned(),
         })
+    }
+}
+
+impl BranchDetachedRule {
+    fn lint(&self) -> Result<(), BranchLintError> {
+        match self {
+            Self::Allowed => Ok(()),
+            Self::Forbidden => Err(BranchLintError::Detached),
+        }
     }
 }
 

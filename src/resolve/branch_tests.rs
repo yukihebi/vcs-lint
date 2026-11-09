@@ -1,6 +1,7 @@
 use super::BranchRawConfig;
 use crate::{
-    lint::branch::{BranchLintRules, BranchLintTarget},
+    cli::branch::BranchDetachedClapRule,
+    lint::branch::{BranchDetachedRule, BranchLintRules, BranchLintTarget},
     name_set::NameSet,
     resolve::DEFAULT_TYPES,
 };
@@ -13,40 +14,69 @@ fn set(names: &[&str]) -> NameSet {
     names.iter().copied().collect()
 }
 
+fn config(branch: &str) -> BranchRawConfig {
+    BranchRawConfig {
+        branch: branch.to_owned(),
+        types: None,
+        protected: None,
+        detached: None,
+    }
+}
+
+fn detached_rule(rule: Option<BranchDetachedClapRule>) -> BranchDetachedRule {
+    let config = BranchRawConfig {
+        detached: rule,
+        ..config("feat/x")
+    };
+    config.resolve().1.detached
+}
+
 #[test]
 fn takes_branch_as_target_and_interprets_lists() {
     let config = BranchRawConfig {
         branch: "feat/x".to_owned(),
         types: values(&["feat", " fix", "feat"]),
         protected: values(&["main,", "", "develop"]),
+        detached: Some(BranchDetachedClapRule::Deny),
     };
     assert_eq!(
         config.resolve(),
         (
-            BranchLintTarget {
-                branch: "feat/x".to_owned()
-            },
+            BranchLintTarget::Branch("feat/x".to_owned()),
             BranchLintRules {
                 types: set(&["feat", "fix"]),
                 protected: set(&["main,", "develop"]),
+                detached: BranchDetachedRule::Forbidden,
             }
         )
     );
 }
 
 #[test]
-fn protects_nothing_and_allows_default_types_when_omitted() {
-    let config = BranchRawConfig {
-        branch: "main".to_owned(),
-        types: None,
-        protected: None,
-    };
-    let (_, rules) = config.resolve();
+fn takes_head_as_detached_head() {
+    assert_eq!(config("HEAD").resolve().0, BranchLintTarget::Detached);
+}
+
+#[test]
+fn takes_names_other_than_head_as_branches() {
+    for branch in ["head", "Head", "HEAD/x", "feat/HEAD", " HEAD"] {
+        assert_eq!(
+            config(branch).resolve().0,
+            BranchLintTarget::Branch(branch.to_owned()),
+            "{branch}"
+        );
+    }
+}
+
+#[test]
+fn protects_nothing_and_allows_default_types_and_detached_head_when_omitted() {
+    let (_, rules) = config("main").resolve();
     assert_eq!(
         rules,
         BranchLintRules {
             types: set(&DEFAULT_TYPES),
             protected: NameSet::default(),
+            detached: BranchDetachedRule::Allowed,
         }
     );
 }
@@ -54,9 +84,20 @@ fn protects_nothing_and_allows_default_types_when_omitted() {
 #[test]
 fn protects_nothing_when_every_value_is_empty() {
     let config = BranchRawConfig {
-        branch: "main".to_owned(),
-        types: None,
         protected: values(&["", " "]),
+        ..config("main")
     };
     assert_eq!(config.resolve().1.protected, NameSet::default());
+}
+
+#[test]
+fn interprets_detached_head_rule() {
+    assert_eq!(
+        detached_rule(Some(BranchDetachedClapRule::Allow)),
+        BranchDetachedRule::Allowed
+    );
+    assert_eq!(
+        detached_rule(Some(BranchDetachedClapRule::Deny)),
+        BranchDetachedRule::Forbidden
+    );
 }
