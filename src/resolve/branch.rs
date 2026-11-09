@@ -3,7 +3,7 @@
 use super::{list::ListRawValues, matchable::ListRequirement, resolve_types};
 use crate::{
     cli::{TypeDefaultsClapMode, branch::BranchDetachedClapRule},
-    git::{Git, GitHead},
+    git::{Git, head::GitHead},
     lint::branch::{BranchDetachedRule, BranchLintRules, BranchLintTarget},
     report::{branch::BranchResolveError, git::GitError, list::ListName},
 };
