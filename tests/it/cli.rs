@@ -1,11 +1,17 @@
+use std::ffi::OsStr;
+
 use insta::assert_snapshot;
 use tempfile::tempdir;
+
+use vcs_lint::RunStatus;
 
 use super::Run;
 
 #[test]
 fn prints_help() {
-    assert_snapshot!(Run::new(&["--help"]), @"
+    let run = Run::new(&["--help"]);
+    assert_status!(run, RunStatus::Info(_));
+    assert_snapshot!(run, @"
     exit: 0
     --- stdout
     A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Systems
@@ -27,6 +33,7 @@ fn prints_help() {
 #[test]
 fn prints_version() {
     let run = Run::new(&["--version"]);
+    assert_status!(run, RunStatus::Info(_));
     assert_eq!(run.code, Some(0));
     assert_eq!(
         run.stdout,
@@ -37,7 +44,9 @@ fn prints_version() {
 
 #[test]
 fn rejects_unknown_option() {
-    assert_snapshot!(Run::new(&["branch", "feat/x", "--scope", "core"]), @"
+    let run = Run::new(&["branch", "feat/x", "--scope", "core"]);
+    assert_status!(run, RunStatus::SyntaxError(_));
+    assert_snapshot!(run, @"
     exit: 3
     --- stdout
     --- stderr
@@ -54,10 +63,12 @@ fn rejects_unknown_option() {
 #[cfg(unix)]
 #[test]
 fn rejects_non_utf8_argument() {
-    use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+    use std::os::unix::ffi::OsStrExt;
 
     let branch = OsStr::from_bytes(b"feat/\xff");
-    assert_snapshot!(Run::new(&[OsStr::new("branch"), branch]), @"
+    let run = Run::new(&[OsStr::new("branch"), branch]);
+    assert_status!(run, RunStatus::SyntaxError(_));
+    assert_snapshot!(run, @"
     exit: 3
     --- stdout
     --- stderr
@@ -71,7 +82,9 @@ fn rejects_non_utf8_argument() {
 
 #[test]
 fn rejects_missing_subcommand() {
-    assert_snapshot!(Run::new(&[] as &[&str]), @"
+    let run = Run::new(&[] as &[&str]);
+    assert_status!(run, RunStatus::SyntaxError(_));
+    assert_snapshot!(run, @"
     exit: 3
     --- stdout
     --- stderr
@@ -93,11 +106,16 @@ fn rejects_missing_subcommand() {
 #[test]
 fn rejects_unreadable_commit_message_file() {
     let dir = tempdir().unwrap();
-    assert_snapshot!(Run::in_dir(dir.path(), &["commit", "missing"]), @"
-    exit: 2
-    --- stdout
-    --- stderr
-    error: cannot read commit message file `missing`
-      No such file or directory (os error 2)
-    ");
+    let file = dir.path().join("missing");
+    let run = Run::new(&[OsStr::new("commit"), file.as_os_str()]);
+    assert_status!(run, RunStatus::CommitResolveError(_));
+    assert_eq!(run.code, Some(2));
+    assert_eq!(run.stdout, "");
+    assert_eq!(
+        run.stderr,
+        format!(
+            "error: cannot read commit message file `{}`\n  No such file or directory (os error 2)\n",
+            file.display()
+        )
+    );
 }

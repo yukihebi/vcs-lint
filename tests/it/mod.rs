@@ -1,4 +1,12 @@
-//! Runs the built binary and compares everything it reports.
+//! Runs each command line both through the library, to see how the run ends,
+//! and through the built binary, to compare everything it reports.
+
+/// Asserts that the library ended `run` as `pattern`.
+macro_rules! assert_status {
+    ($run:expr, $pattern:pat) => {
+        assert!(matches!($run.status, $pattern), "{:?}", $run.status)
+    };
+}
 
 mod branch;
 mod cli;
@@ -8,31 +16,31 @@ use std::{
     ffi::OsStr,
     fmt::{self, Display, Formatter},
     io::Write,
-    path::Path,
     process::Command,
 };
 
 use tempfile::NamedTempFile;
+use vcs_lint::RunStatus;
 
-/// The exit code and output of one run, rendered as a whole for snapshots.
+/// How one run ends, with the exit code and output of the binary rendered as
+/// a whole for snapshots.
 struct Run {
+    status: RunStatus,
     code: Option<i32>,
     stdout: String,
     stderr: String,
 }
 
 impl Run {
+    /// Runs `args` in the current directory, where relative paths resolve the
+    /// same way for the library and the binary.
     fn new(args: &[impl AsRef<OsStr>]) -> Self {
-        Self::in_dir(Path::new(env!("CARGO_MANIFEST_DIR")), args)
-    }
-
-    fn in_dir(dir: &Path, args: &[impl AsRef<OsStr>]) -> Self {
         let output = Command::new(env!("CARGO_BIN_EXE_vcs-lint"))
             .args(args)
-            .current_dir(dir)
             .output()
             .unwrap();
         Self {
+            status: vcs_lint::run(args.iter().map(|arg| arg.as_ref().to_owned()).collect()),
             code: output.status.code(),
             stdout: String::from_utf8(output.stdout).unwrap(),
             stderr: String::from_utf8(output.stderr).unwrap(),
