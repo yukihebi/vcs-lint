@@ -41,9 +41,9 @@ impl Git {
     /// The names of the directories directly under `dir` that the index holds
     /// entries in, submodules included, each once and ordered by their bytes.
     ///
-    /// `dir` is resolved to its real path, which is both given to git and
-    /// compared with the top of the work tree, so that however `dir` is
-    /// written, both agree on the directory without its path being
+    /// `dir` is resolved to its real path, which git matches the entries to,
+    /// and which is compared with the top of the work tree to find how deep
+    /// the directory is, so that however `dir` is written, its path is never
     /// normalized by hand.
     pub fn index_subdirs(&self, dir: &Path) -> Result<Vec<String>, GitSubdirsError> {
         let real = fs::canonicalize(dir).map_err(|err| GitSubdirsError::unresolvable(&err))?;

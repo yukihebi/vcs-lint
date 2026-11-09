@@ -78,6 +78,18 @@ fn counts_directory_without_subdirectories_as_given() {
 }
 
 #[test]
+fn counts_directory_without_entries_as_given() {
+    let repo = packages();
+    assert_snapshot!(repo.run(&["commit", "MSG", "--scope-dir", "crates/untracked"]), @"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: scopes are given, but none is left allowed
+      give one with `--scope`, or give none to forbid scopes
+    ");
+}
+
+#[test]
 fn reads_directory_relative_to_current_directory() {
     let repo = packages();
     let output = BinaryOutput::of(
