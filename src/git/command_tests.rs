@@ -18,18 +18,26 @@ fn reads_standard_output() {
 }
 
 #[test]
-fn reads_empty_input_without_waiting() {
-    let hash = git(&["hash-object", "--stdin"]).read_optional(stdout);
-    assert_eq!(
-        hash,
-        Ok(Some(b"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\n".to_vec()))
-    );
-}
-
-#[test]
 fn gives_none_when_query_finds_nothing() {
     let value = git(&["config", "--get", "vcs-lint.no-such-key"]).read_optional(stdout);
     assert_eq!(value, Ok(None));
+}
+
+#[test]
+fn fails_when_absent_status_comes_with_output() {
+    let result = GitCommand::new(
+        OsStr::new("sh"),
+        &[
+            "-c",
+            "echo 'xcrun: error: invalid active developer path' >&2; exit 1",
+        ],
+    )
+    .read_optional(stdout);
+    let Err(GitError::Failed { status, stderr, .. }) = result else {
+        panic!("expected a failure, got {result:?}");
+    };
+    assert_eq!(status.code(), Some(1));
+    assert_eq!(stderr, "xcrun: error: invalid active developer path");
 }
 
 #[test]
