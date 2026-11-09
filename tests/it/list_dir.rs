@@ -66,26 +66,46 @@ fn adds_directory_names_after_given_values() {
 }
 
 #[test]
-fn counts_directory_without_subdirectories_as_given() {
+fn rejects_directory_without_subdirectories() {
     let repo = packages();
     assert_snapshot!(repo.run(&["commit", "MSG", "--type-dir", "crates/a/src"]), @"
     exit: 2
     --- stdout
     --- stderr
-    error: there are no allowed types
-      give one with `--type`
+    error: there are no directories under `crates/a/src` for `--type-dir`
+      a directory counts when it holds a committed or staged file
     ");
 }
 
 #[test]
-fn counts_directory_without_entries_as_given() {
+fn rejects_directory_without_entries() {
     let repo = packages();
-    assert_snapshot!(repo.run(&["commit", "MSG", "--scope-dir", "crates/untracked"]), @"
+    assert_snapshot!(repo.run(&["branch", "b", "--protected-dir", "crates/untracked"]), @"
     exit: 2
     --- stdout
     --- stderr
-    error: scopes are given, but none is left allowed
-      give one with `--scope`, or give none to forbid scopes
+    error: there are no directories under `crates/untracked` for `--protected-dir`
+      a directory counts when it holds a committed or staged file
+    ");
+}
+
+#[test]
+fn rejects_directory_without_subdirectories_among_values() {
+    let repo = packages();
+    let args = [
+        "commit",
+        "MSG",
+        "--scope",
+        "root",
+        "--scope-dir",
+        "crates,crates/a/src",
+    ];
+    assert_snapshot!(repo.run(&args), @"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: there are no directories under `crates/a/src` for `--scope-dir`
+      a directory counts when it holds a committed or staged file
     ");
 }
 

@@ -132,9 +132,9 @@ A message with no line left fails with `commit message is empty`.
 | `auto`, or not given | as `required` when any scope is given, as `forbidden` otherwise |
 
 Scopes count as given once `--scope` or `--scope-dir` appears, even when every
-given scope is excluded or no directory is found. `required` and `optional`, and `auto` with scopes given, need at
-least one allowed scope; without one, the command fails with status `2` (see
-[Exit status](cli.md#exit-status)).
+given scope is excluded. `required` and `optional`, and `auto` with scopes
+given, need at least one allowed scope; without one, the command fails with
+status `2` (see [Exit status](cli.md#exit-status)).
 `forbidden` ignores the `--scope` values and the `--scope-dir` directories.
 
 A malformed header is reported with the form of the mode, written

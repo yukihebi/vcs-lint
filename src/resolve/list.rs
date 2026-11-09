@@ -22,15 +22,16 @@ pub struct ListRawValues {
 }
 
 impl ListRawValues {
-    /// Whether an option adding to the list appears, even if it adds nothing.
+    /// Whether an option adding to the list appears, even if every value it
+    /// adds is excluded.
     pub fn is_given(&self) -> bool {
         self.given.is_some() || self.dirs.is_some()
     }
 
     /// Composes `defaults`, the given values and the names of the
     /// subdirectories of the given directories, in this order, without the
-    /// excluded values, failing when a directory cannot be read or an
-    /// excluded value is in none of them.
+    /// excluded values, failing when a directory cannot be read or has no
+    /// subdirectory, or an excluded value is in none of them.
     pub fn resolve(
         self,
         list: ListName,
@@ -66,7 +67,8 @@ impl ListRawValues {
     }
 
     /// The names of the subdirectories of `dirs` that the index holds entries
-    /// in, directory by directory.
+    /// in, directory by directory, failing on a directory with none, as it
+    /// would add nothing to the list.
     fn read_subdirs(
         list: ListName,
         dirs: Vec<PathBuf>,
@@ -75,6 +77,9 @@ impl ListRawValues {
         let mut names = Vec::new();
         for dir in dirs {
             match git.index_subdirs(&dir) {
+                Ok(subdirs) if subdirs.is_empty() => {
+                    return Err(ListResolveError::NoSubdirs { list, dir });
+                }
                 Ok(subdirs) => names.extend(subdirs),
                 Err(cause) => return Err(ListResolveError::Dir { list, dir, cause }),
             }
