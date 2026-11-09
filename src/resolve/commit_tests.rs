@@ -1,4 +1,7 @@
-use std::{io::Write, path::PathBuf};
+use std::{
+    io::{self, Write},
+    path::PathBuf,
+};
 
 use tempfile::NamedTempFile;
 
@@ -34,8 +37,11 @@ fn config(file: PathBuf, scopes: Option<Vec<String>>) -> CommitRawConfig {
     }
 }
 
-fn resolve_error(file: PathBuf) -> CommitResolveError {
-    config(file, None).resolve().unwrap_err()
+fn read_error(file: PathBuf) -> (PathBuf, io::Error) {
+    match config(file, None).resolve() {
+        Err(CommitResolveError::Unreadable { file, source }) => (file, source),
+        other => panic!("{other:?}"),
+    }
 }
 
 #[test]
@@ -76,12 +82,12 @@ fn forbids_scopes_and_allows_default_types_when_omitted() {
 fn auto_requires_scopes_only_when_given() {
     for mode in [None, Some(CommitScopeClapMode::Auto)] {
         assert_eq!(
-            CommitRawConfig::resolve_scopes(mode, values(&["core", "cli"])),
+            CommitRawConfig::resolve_scopes(mode, values(&["core", "cli"])).unwrap(),
             CommitScopeRule::Required(set(&["core", "cli"])),
             "{mode:?}"
         );
         assert_eq!(
-            CommitRawConfig::resolve_scopes(mode, None),
+            CommitRawConfig::resolve_scopes(mode, None).unwrap(),
             CommitScopeRule::Forbidden,
             "{mode:?}"
         );
@@ -94,14 +100,16 @@ fn required_and_optional_allow_given_scopes() {
         CommitRawConfig::resolve_scopes(
             Some(CommitScopeClapMode::Required),
             values(&["core", "cli", "core"])
-        ),
+        )
+        .unwrap(),
         CommitScopeRule::Required(set(&["core", "cli"]))
     );
     assert_eq!(
         CommitRawConfig::resolve_scopes(
             Some(CommitScopeClapMode::Optional),
             values(&["core", "cli", "core"])
-        ),
+        )
+        .unwrap(),
         CommitScopeRule::Optional(set(&["core", "cli"]))
     );
 }
@@ -109,32 +117,49 @@ fn required_and_optional_allow_given_scopes() {
 #[test]
 fn forbidden_ignores_given_scopes() {
     assert_eq!(
-        CommitRawConfig::resolve_scopes(Some(CommitScopeClapMode::Forbidden), values(&["core"])),
+        CommitRawConfig::resolve_scopes(Some(CommitScopeClapMode::Forbidden), values(&["core"]))
+            .unwrap(),
         CommitScopeRule::Forbidden
     );
+}
+
+#[test]
+fn required_and_optional_fail_without_scopes_before_reading_file() {
+    let dir = tempfile::tempdir().unwrap();
+    for mode in [CommitScopeClapMode::Required, CommitScopeClapMode::Optional] {
+        let config = CommitRawConfig {
+            scope_mode: Some(mode),
+            ..config(dir.path().join("missing"), None)
+        };
+        let result = config.resolve();
+        assert!(
+            matches!(result, Err(CommitResolveError::NoScopes { mode: found }) if found == mode),
+            "{result:?}"
+        );
+    }
 }
 
 #[test]
 fn fails_on_missing_file() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("missing");
-    let err = resolve_error(path.clone());
-    assert_eq!(err.file, path);
-    assert_eq!(err.source.kind(), std::io::ErrorKind::NotFound);
+    let (file, source) = read_error(path.clone());
+    assert_eq!(file, path);
+    assert_eq!(source.kind(), io::ErrorKind::NotFound);
 }
 
 #[test]
 fn fails_on_directory() {
     let dir = tempfile::tempdir().unwrap();
-    let err = resolve_error(dir.path().to_owned());
-    assert_eq!(err.file, dir.path());
-    assert_eq!(err.source.kind(), std::io::ErrorKind::IsADirectory);
+    let (file, source) = read_error(dir.path().to_owned());
+    assert_eq!(file, dir.path());
+    assert_eq!(source.kind(), io::ErrorKind::IsADirectory);
 }
 
 #[test]
 fn fails_on_message_outside_utf8() {
     let file = message_file(b"feat: \xff\n");
-    let err = resolve_error(file.path().to_owned());
-    assert_eq!(err.file, file.path());
-    assert_eq!(err.source.kind(), std::io::ErrorKind::InvalidData);
+    let (path, source) = read_error(file.path().to_owned());
+    assert_eq!(path, file.path());
+    assert_eq!(source.kind(), io::ErrorKind::InvalidData);
 }

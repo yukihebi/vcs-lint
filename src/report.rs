@@ -20,7 +20,8 @@ pub enum RunStatus {
     /// The command line does not follow the syntax of the commands. Exits
     /// with `3`.
     SyntaxError(clap::Error),
-    /// The commit message cannot be read, so it is not linted. Exits with `2`.
+    /// The commit message or the rules cannot be resolved, so nothing is
+    /// linted. Exits with `2`.
     CommitResolveError(CommitResolveError),
     /// The branch name breaks a rule. Exits with `1`.
     BranchLintError(BranchLintError),

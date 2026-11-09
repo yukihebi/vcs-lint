@@ -1,6 +1,9 @@
 //! Syntax of the `commit` command.
 
-use std::path::PathBuf;
+use std::{
+    fmt::{self, Display, Formatter},
+    path::PathBuf,
+};
 
 use clap::{Args, ValueEnum};
 
@@ -17,8 +20,7 @@ pub struct CommitClapArgs {
     #[arg(
         long = "scope",
         value_name = "SCOPE",
-        value_parser = ListClapValues::parse,
-        required_if_eq_any = [("scope_mode", "required"), ("scope_mode", "optional")],
+        value_parser = ListClapValues::parse
     )]
     scopes: Option<Vec<ListClapValues>>,
     #[arg(
@@ -40,6 +42,14 @@ pub enum CommitScopeClapMode {
     Optional,
     /// Headers must not have a scope; `--scope` is ignored
     Forbidden,
+}
+
+/// Written as the value it is given with.
+impl Display for CommitScopeClapMode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let value = self.to_possible_value().expect("no mode is skipped");
+        f.write_str(value.get_name())
+    }
 }
 
 impl CommitClapArgs {

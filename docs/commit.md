@@ -102,9 +102,9 @@ A message with no line left fails with `commit message is empty`.
 | `forbidden` | `<type>: <subject>` |
 | `auto`, or not given | as `required` when any scope is given, as `forbidden` otherwise |
 
-`required` and `optional` need at least one `--scope`; without one, the
-command line is syntactically invalid. `forbidden` ignores the `--scope`
-values.
+`required` and `optional` need at least one allowed scope; without one, the
+command fails with status `2` (see [Exit status](cli.md#exit-status)).
+`forbidden` ignores the `--scope` values.
 
 A malformed header is reported with the form of the mode, written
 `<type>[(<scope>)]: <subject>` for `optional`.

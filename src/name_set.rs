@@ -10,6 +10,10 @@ impl NameSet {
     pub fn contains(&self, name: &str) -> bool {
         self.0.iter().any(|n| n == name)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 /// A repeated name keeps its first position.
