@@ -42,7 +42,7 @@ fn reads_header_from_message_file() {
     let config = CommitRawConfig {
         file: file.path().to_owned(),
         types: values(&["feat", "fix"]),
-        scopes: values(&["core", " cli "]),
+        scopes: values(&["core", "cli", "core"]),
     };
     assert_eq!(
         config.resolve().unwrap(),
@@ -66,16 +66,6 @@ fn forbids_scopes_and_allows_default_types_when_omitted() {
             types: set(&DEFAULT_TYPES),
             scopes: CommitScopeRule::Forbidden,
         }
-    );
-}
-
-#[test]
-fn forbids_scopes_when_every_value_is_empty() {
-    let file = message_file(b"feat: x\n");
-    let config = config(file.path().to_owned(), values(&["", " "]));
-    assert_eq!(
-        config.resolve().unwrap().1.scopes,
-        CommitScopeRule::Forbidden
     );
 }
 

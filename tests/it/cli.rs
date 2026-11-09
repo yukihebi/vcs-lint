@@ -60,6 +60,20 @@ fn rejects_unknown_option() {
     ");
 }
 
+#[test]
+fn rejects_list_flag_without_values() {
+    let run = Run::new(&["branch", "feat/x", "--type", "feat", "--type", ""]);
+    assert_status!(run, RunStatus::SyntaxError(_));
+    assert_snapshot!(run, @"
+    exit: 3
+    --- stdout
+    --- stderr
+    error: invalid value '' for '--type <TYPE>': every value is empty
+
+    For more information, try '--help'.
+    ");
+}
+
 #[cfg(unix)]
 #[test]
 fn rejects_non_utf8_argument() {
