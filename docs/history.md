@@ -43,10 +43,11 @@ A shallow clone, as CI often makes, must hold enough history to find the tip
 
 ## Arguments
 
-- `[REV]`: the revision to lint, such as a branch name, `HEAD` or a commit
-  hash, as Git resolves it. `HEAD` when not given. Only the commit it names
-  matters, so a branch and a detached HEAD at the same commit are linted
-  alike.
+- `[REV]`: the revision to lint, in any form Git reads, such as a branch
+  name, `HEAD~1`, a commit hash, a tag or `:/<text>`. `HEAD` when not given.
+  Only the commit it names matters, so a branch and a detached HEAD at the
+  same commit are linted alike, and a tag is linted as the commit it points
+  to.
 
 ## Options
 
@@ -82,12 +83,28 @@ from the ref that `--base-from` and `--network` select:
 
 - A local base is often behind the remote itself, so `local` is the weaker
   check.
-- `git ls-remote` reads the remote as it is now. It runs with
-  `GIT_TERMINAL_PROMPT=0`, so it fails instead of prompting for credentials.
-  SSH may still ask on the terminal, such as for a passphrase or an unknown
-  host key, unless it is set up not to.
+- `git ls-remote` reads the remote as it is now. It runs without a time
+  limit, so an unreachable remote holds the command until the connection
+  times out.
 - The remote-tracking branch is the tip as last fetched, so it may be older
   than the remote.
+
+### Network
+
+Only `git ls-remote` accesses the network. A partial clone does not fetch the
+objects it lacks either, so a commit it lacks counts as missing from the
+repository. Git released before May 2024 cannot be kept from fetching them,
+and fetches them from the remote it was cloned from.
+
+Git runs with prompts for credentials turned off, so it fails instead of
+waiting for input, whether on the terminal (`GIT_TERMINAL_PROMPT=0`) or with
+a program (`GIT_ASKPASS` set empty, and `SSH_ASKPASS_REQUIRE=never` for SSH).
+SSH itself may still ask on the terminal, such as for a passphrase or an
+unknown host key. In a hook that must never wait, run SSH in batch mode:
+
+```sh
+GIT_SSH_COMMAND="ssh -o BatchMode=yes" vcs-lint history --base main
+```
 
 ## Rules
 

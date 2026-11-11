@@ -174,6 +174,28 @@ fn reads_local_base_branch() {
 }
 
 #[test]
+fn lints_revision_in_any_form_git_reads() {
+    let clones = Clones::new();
+    assert_snapshot!(clones.run(&["history", ":/feat", "--base", "main"]), @"
+    exit: 0
+    --- stdout
+    --- stderr
+    ");
+    clones.repo.git(&["tag", "-a", "-m", "tag", "v1"]);
+    assert_snapshot!(clones.run(&["history", "v1", "--base", "main"]), @"
+    exit: 0
+    --- stdout
+    --- stderr
+    ");
+    assert_snapshot!(clones.run(&["history", "HEAD:", "--base", "main"]), @"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: `HEAD:` cannot be resolved to a commit
+    ");
+}
+
+#[test]
 fn lints_revision_given_as_commit_whatever_branch() {
     let clones = Clones::new();
     clones.repo.git(&["switch", "-q", "--detach", "HEAD~1"]);
@@ -324,8 +346,26 @@ fn fails_outside_repository() {
     exit: 2
     --- stdout
     --- stderr
-    error: `git rev-parse --verify -q --end-of-options HEAD^{commit}` failed with exit status: 128
+    error: `git cat-file --batch-check=%(objectname)` failed with exit status: 128
       fatal: not a git repository (or any of the parent directories): .git
+    ");
+}
+
+#[test]
+fn rejects_tip_missing_from_partial_clone_without_fetching_it() {
+    let clones = Clones::new();
+    clones
+        .remote
+        .git(&["config", "uploadpack.allowFilter", "true"]);
+    let partial = Clones::clone(&clones.remote, &["--filter=blob:none"]);
+    clones.advance_remote(1);
+    assert_snapshot!(redact(&partial.run(&["history", "--base", "main"])), @"
+    exit: 1
+    --- stdout
+    --- stderr
+    error: `HEAD` is behind base branch `main` on `origin`
+      the tip <id> is not in the local repository
+        fetch it to see how many commits are missing
     ");
 }
 

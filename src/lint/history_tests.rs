@@ -51,7 +51,7 @@ fn rejects_tip_not_in_repository() {
         Err(HistoryLintError::TipNotLocal {
             rev: "feat/x".to_owned(),
             base: remote(),
-            tip: tip_id(),
+            id: tip_id(),
         })
     );
 }

@@ -23,7 +23,7 @@ pub struct HistoryClapArgs {
         value_name = "SOURCE",
         help = "Where the base branch is read from\n[default: remote]"
     )]
-    base_from: Option<HistoryBaseFromClapSource>,
+    base_from: Option<HistoryBaseClapSource>,
     #[arg(
         long = "remote",
         value_name = "NAME",
@@ -41,7 +41,7 @@ pub struct HistoryClapArgs {
 
 /// Where the base branch is read from, as written.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum HistoryBaseFromClapSource {
+pub enum HistoryBaseClapSource {
     /// The local branch
     Local,
     /// The branch on the remote given by `--remote`

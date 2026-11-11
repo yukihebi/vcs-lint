@@ -6,8 +6,9 @@
 //! the hooks of a linked worktree, git takes the directory it runs in as the
 //! top of the work tree.
 //!
-//! Arguments that could start with `-` are given after `--end-of-options`, so
-//! that git never reads them as options.
+//! What the user writes is never given where git could read it as an option:
+//! a revision is given on standard input, and a remote after
+//! `--end-of-options`.
 
 mod command;
 pub mod head;
@@ -23,7 +24,7 @@ use std::{
 };
 
 use crate::report::git::{GitError, GitSubdirsError};
-use command::GitCommand;
+use command::{GitAbsentStatus, GitCommand};
 use head::GitHead;
 use index::GitIndexDir;
 use object_id::GitObjectId;
@@ -36,15 +37,16 @@ pub struct Git;
 impl Git {
     const PROGRAM: &str = "git";
 
-    /// The exit status of `git ls-remote --exit-code` when no ref matches.
-    const LS_REMOTE_ABSENT: i32 = 2;
+    /// How `git ls-remote --exit-code` exits when no ref matches, after the
+    /// transport may have printed warnings.
+    const LS_REMOTE_ABSENT: GitAbsentStatus = GitAbsentStatus::with_stderr(2);
 
     /// What `HEAD` of the repository points to, including a branch with no
     /// commit yet.
     pub fn head(&self) -> Result<GitHead, GitError> {
         let branch = self
             .command(&["symbolic-ref", "-q", "HEAD"])
-            .read_optional(GitCommand::ABSENT, GitHead::parse_branch)?;
+            .read_optional(GitAbsentStatus::QUIET, GitHead::parse_branch)?;
         Ok(branch.map_or(GitHead::Detached, GitHead::Branch))
     }
 
@@ -84,12 +86,33 @@ impl Git {
             .collect()
     }
 
-    /// The commit `rev` names, or `None` when it names none, including an
-    /// object name of a commit missing from the repository.
+    /// The commit `rev` names, through the tag it names if any, or `None`
+    /// when it names no commit in the repository.
     pub fn commit(&self, rev: &str) -> Result<Option<GitObjectId>, GitError> {
-        let peeled = format!("{rev}^{{commit}}");
-        self.command(&["rev-parse", "--verify", "-q", "--end-of-options", &peeled])
-            .read_optional(GitCommand::ABSENT, GitObjectId::parse_line)
+        match self.object(rev)? {
+            Some(object) => self.peel_commit(&object),
+            None => Ok(None),
+        }
+    }
+
+    /// The commit `object` is or points to as a tag, or `None` when there is
+    /// none in the repository.
+    pub fn peel_commit(&self, object: &GitObjectId) -> Result<Option<GitObjectId>, GitError> {
+        self.object(&format!("{object}^{{commit}}"))
+    }
+
+    /// The object `name` names in any form git reads, such as `HEAD~1` or
+    /// `:/fix`, or `None` when it names no single object in the repository.
+    ///
+    /// A name holding a line break, which would be read as several names,
+    /// names none.
+    fn object(&self, name: &str) -> Result<Option<GitObjectId>, GitError> {
+        if name.contains('\n') {
+            return Ok(None);
+        }
+        self.command(&["cat-file", "--batch-check=%(objectname)"])
+            .input(format!("{name}\n"))
+            .read(|stdout| GitObjectId::parse_lookup(stdout, name))
     }
 
     /// Whether `name` is valid as the full name of a ref, such as
@@ -98,7 +121,9 @@ impl Git {
     pub fn is_ref_name(&self, name: &str) -> Result<bool, GitError> {
         let valid = self
             .command(&["check-ref-format", name])
-            .read_optional(GitCommand::ABSENT, |stdout| stdout.is_empty().then_some(()))?;
+            .read_optional(GitAbsentStatus::QUIET, |stdout| {
+                stdout.is_empty().then_some(())
+            })?;
         Ok(valid.is_some())
     }
 
@@ -142,11 +167,16 @@ impl Git {
     /// its commits.
     pub fn is_shallow(&self) -> Result<bool, GitError> {
         self.command(&["rev-parse", "--is-shallow-repository"])
-            .read(|stdout| match stdout {
-                b"true\n" => Some(true),
-                b"false\n" => Some(false),
-                _ => None,
-            })
+            .read(Self::parse_bool)
+    }
+
+    /// Reads `true` or `false` followed by a line break.
+    fn parse_bool(stdout: &[u8]) -> Option<bool> {
+        match stdout {
+            b"true\n" => Some(true),
+            b"false\n" => Some(false),
+            _ => None,
+        }
     }
 
     /// Reads a decimal number followed by a line break.
@@ -169,3 +199,7 @@ impl Git {
         GitCommand::new(OsStr::new(Self::PROGRAM), args)
     }
 }
+
+#[cfg(test)]
+#[path = "git_tests.rs"]
+mod tests;

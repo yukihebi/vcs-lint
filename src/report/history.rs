@@ -56,13 +56,14 @@ pub enum HistoryLintError {
     /// The tip, read from the remote, is not in the repository.
     #[display(
         "`{rev}` is behind base branch {base}\n  \
-         the tip {tip} is not in the local repository\n    \
+         the tip {id} is not in the local repository\n    \
          fetch it to see how many commits are missing"
     )]
     TipNotLocal {
         rev: String,
         base: HistoryBase,
-        tip: GitObjectId,
+        /// The object name of the tip.
+        id: GitObjectId,
     },
 }
 

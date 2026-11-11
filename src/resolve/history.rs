@@ -1,7 +1,7 @@
 //! Interpretation of the `history` command.
 
 use crate::{
-    cli::{NetworkClapAccess, history::HistoryBaseFromClapSource},
+    cli::{NetworkClapAccess, history::HistoryBaseClapSource},
     git::{Git, object_id::GitObjectId},
     lint::history::{
         HistoryBase, HistoryBaseSource, HistoryLintRules, HistoryLintTarget, HistoryTip,
@@ -15,7 +15,7 @@ pub struct HistoryRawConfig {
     /// The revision given, or `None` to lint `HEAD`.
     pub rev: Option<String>,
     pub base: Option<String>,
-    pub base_from: Option<HistoryBaseFromClapSource>,
+    pub base_from: Option<HistoryBaseClapSource>,
     pub remote: Option<String>,
     pub network: Option<NetworkClapAccess>,
 }
@@ -63,21 +63,21 @@ impl HistoryRawConfig {
     /// to read it.
     fn resolve_base(
         branch: Option<String>,
-        base_from: Option<HistoryBaseFromClapSource>,
+        base_from: Option<HistoryBaseClapSource>,
         remote: Option<String>,
         network: Option<NetworkClapAccess>,
     ) -> Result<HistoryBase, HistoryResolveError> {
         let branch = branch.ok_or(HistoryResolveError::MissingBase)?;
         let remote = || remote.unwrap_or_else(|| Self::DEFAULT_REMOTE.to_owned());
         let source = match (
-            base_from.unwrap_or(HistoryBaseFromClapSource::Remote),
+            base_from.unwrap_or(HistoryBaseClapSource::Remote),
             network.unwrap_or(NetworkClapAccess::Allow),
         ) {
-            (HistoryBaseFromClapSource::Local, _) => HistoryBaseSource::Local,
-            (HistoryBaseFromClapSource::Remote, NetworkClapAccess::Allow) => {
+            (HistoryBaseClapSource::Local, _) => HistoryBaseSource::Local,
+            (HistoryBaseClapSource::Remote, NetworkClapAccess::Allow) => {
                 HistoryBaseSource::Remote { remote: remote() }
             }
-            (HistoryBaseFromClapSource::Remote, NetworkClapAccess::Deny) => {
+            (HistoryBaseClapSource::Remote, NetworkClapAccess::Deny) => {
                 HistoryBaseSource::RemoteTracking { remote: remote() }
             }
         };
@@ -106,7 +106,7 @@ impl HistoryRawConfig {
         commit: &GitObjectId,
         git: &Git,
     ) -> Result<HistoryTip, GitError> {
-        Ok(match git.commit(tip.as_str())? {
+        Ok(match git.peel_commit(&tip)? {
             Some(tip) => HistoryTip::Local {
                 missing: git.count_missing(&tip, commit)?,
             },
