@@ -1,15 +1,17 @@
 //! Lints branch names and commit message headers against the types and scopes
-//! given on the command line.
+//! given on the command line or in a config file.
 
 use std::ffi::OsString;
 
 use cli::{ClapCommand, Parsed};
+use config_file::ConfigFile;
 use env::Env;
 use git::Git;
 pub use report::RunStatus;
 use version::Version;
 
 mod cli;
+mod config_file;
 mod env;
 mod git;
 mod lint;
@@ -23,7 +25,9 @@ mod version;
 /// printing anything; [`RunStatus::report`] prints how it ends.
 ///
 /// The required version is checked before anything else, as an older
-/// vcs-lint may not know the options the command line uses.
+/// vcs-lint may not know the options the command line uses. When a config
+/// file is given, the command line is parsed again with the flags the command
+/// reads from the file given right after the command name.
 pub fn run(args: Vec<OsString>, var: impl Fn(&str) -> Option<OsString>) -> RunStatus {
     let env = Env::read(var);
     if let Some(required) = &env.required_version
@@ -31,8 +35,23 @@ pub fn run(args: Vec<OsString>, var: impl Fn(&str) -> Option<OsString>) -> RunSt
     {
         return RunStatus::RequiredVersionError(err);
     }
-    match Parsed::parse(args) {
-        Ok(Parsed::Command(command)) => run_command(command),
+    let parsed = Parsed::parse(args.clone());
+    let Ok(Parsed::Command(command)) = &parsed else {
+        return run_parsed(parsed);
+    };
+    match ConfigFile::path(command.config(), &env) {
+        None => run_parsed(parsed),
+        Some(path) => match ConfigFile::read(path) {
+            Ok(file) => run_parsed(Parsed::parse_with_leading(args, file.flags(command.name()))),
+            Err(err) => RunStatus::ConfigFileError(err),
+        },
+    }
+}
+
+/// Runs what the command line was parsed into.
+fn run_parsed(parsed: Result<Parsed, clap::Error>) -> RunStatus {
+    match parsed {
+        Ok(Parsed::Command(command)) => run_command(*command),
         Ok(Parsed::Info(info)) => RunStatus::Info(info),
         Err(err) => RunStatus::SyntaxError(err),
     }

@@ -1,28 +1,40 @@
-use std::{ffi::OsString, path::PathBuf};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 
 use clap::error::ErrorKind;
 
 use super::{
-    ClapCommand, Parsed, TypeDefaultsClapMode, branch::BranchDetachedClapRule,
-    commit::CommitScopeClapMode,
+    ClapCommand, CommandName, CommandOption, Parsed, TypeDefaultsClapMode,
+    branch::BranchDetachedClapRule, commit::CommitScopeClapMode,
 };
 use crate::resolve::{branch::BranchRawConfig, commit::CommitRawConfig, list::ListRawValues};
 
+fn os_strings(args: &[&str]) -> Vec<OsString> {
+    args.iter().map(OsString::from).collect()
+}
+
 fn parse(args: &[&str]) -> Result<Parsed, clap::Error> {
-    Parsed::parse(args.iter().map(OsString::from).collect())
+    Parsed::parse(os_strings(args))
+}
+
+fn command(args: &[&str]) -> ClapCommand {
+    let Ok(Parsed::Command(command)) = parse(args) else {
+        panic!("{args:?} is not a command");
+    };
+    *command
 }
 
 fn branch(args: &[&str]) -> BranchRawConfig {
-    let Ok(Parsed::Command(ClapCommand::Branch(args))) = parse(&[&["branch"], args].concat())
-    else {
+    let ClapCommand::Branch(args) = command(&[&["branch"], args].concat()) else {
         panic!("not a branch command");
     };
     args.into_raw_config()
 }
 
 fn commit(args: &[&str]) -> CommitRawConfig {
-    let Ok(Parsed::Command(ClapCommand::Commit(args))) = parse(&[&["commit"], args].concat())
-    else {
+    let ClapCommand::Commit(args) = command(&[&["commit"], args].concat()) else {
         panic!("not a commit command");
     };
     args.into_raw_config()
@@ -359,5 +371,116 @@ fn rejects_command_line_outside_syntax() {
             panic!("{args:?} parsed");
         };
         assert_eq!(err.kind(), kind, "{args:?}");
+    }
+}
+
+#[test]
+fn config_is_given_to_both_commands() {
+    for args in [
+        &["branch", "--config", "vcs-lint.toml"][..],
+        &["commit", "missing", "--config=vcs-lint.toml"],
+    ] {
+        assert_eq!(
+            command(args).config(),
+            Some(Path::new("vcs-lint.toml")),
+            "{args:?}"
+        );
+    }
+}
+
+#[test]
+fn config_is_none_when_omitted() {
+    assert_eq!(command(&["branch"]).config(), None);
+    assert_eq!(command(&["commit", "missing"]).config(), None);
+}
+
+#[test]
+fn config_rejects_empty_path() {
+    let Err(err) = parse(&["branch", "--config", ""]) else {
+        panic!("parsed");
+    };
+    assert_eq!(err.kind(), ErrorKind::InvalidValue);
+}
+
+#[test]
+fn command_is_named_as_written() {
+    assert_eq!(command(&["branch"]).name(), CommandName::Branch);
+    assert_eq!(command(&["commit", "missing"]).name(), CommandName::Commit);
+    for name in CommandName::ALL {
+        assert_eq!(CommandName::from_name(name.as_str()), Some(name));
+    }
+    assert_eq!(CommandName::from_name("Branch"), None);
+}
+
+#[test]
+fn command_options_are_those_with_long_names() {
+    let list = |name: &str| CommandOption {
+        name: name.to_owned(),
+        is_list: true,
+    };
+    let single = |name: &str| CommandOption {
+        name: name.to_owned(),
+        is_list: false,
+    };
+    assert_eq!(
+        CommandName::Branch.options(),
+        [
+            list("type"),
+            list("type-dir"),
+            list("type-exclude"),
+            single("type-defaults"),
+            list("protected"),
+            list("protected-dir"),
+            list("protected-exclude"),
+            single("detached"),
+            single("config"),
+        ]
+    );
+    assert_eq!(
+        CommandName::Commit.options(),
+        [
+            list("type"),
+            list("type-dir"),
+            list("type-exclude"),
+            single("type-defaults"),
+            list("scope"),
+            list("scope-dir"),
+            list("scope-exclude"),
+            single("scope-mode"),
+            single("config"),
+        ]
+    );
+}
+
+#[test]
+fn leading_flags_are_given_right_after_command_name() {
+    let Ok(Parsed::Command(command)) = Parsed::parse_with_leading(
+        os_strings(&["commit", "missing", "--scope", "cli"]),
+        os_strings(&["--scope=root", "--scope-mode=optional"]),
+    ) else {
+        panic!("not a command");
+    };
+    let ClapCommand::Commit(args) = *command else {
+        panic!("not a commit command");
+    };
+    let config = args.into_raw_config();
+    assert_eq!(config.scopes.given, values(&["root", "cli"]));
+    assert_eq!(config.scope_mode, Some(CommitScopeClapMode::Optional));
+}
+
+#[test]
+fn leading_flags_follow_rules_of_command_line() {
+    for (leading, kind) in [
+        (&["--detached=deny"][..], ErrorKind::ArgumentConflict),
+        (&["--protected="], ErrorKind::ValueValidation),
+        (&["--scope=core"], ErrorKind::UnknownArgument),
+    ] {
+        let Err(err) = Parsed::parse_with_leading(
+            os_strings(&["branch", "HEAD", "--detached", "allow"]),
+            os_strings(leading),
+        ) else {
+            panic!("{leading:?} parsed");
+        };
+        assert_eq!(err.kind(), kind, "{leading:?}");
     }
 }

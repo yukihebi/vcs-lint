@@ -4,7 +4,8 @@ A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Sy
 
 ## Features
 
-- All rules can be passed as command line arguments.
+- All rules can be passed as command line arguments,
+  or shared through a config file read by every hook and CI job.
 - The file path from Git's `commit-msg` hook can be passed as-is.
 - Lints branch names of the form `<type>/<name>`,
   rejects protected branches such as `main`,
@@ -22,6 +23,7 @@ vcs-lint branch --protected main
 vcs-lint branch feat/add-matcher --protected main
 vcs-lint commit .git/COMMIT_EDITMSG
 vcs-lint commit .git/COMMIT_EDITMSG --scope root --scope-dir crates
+vcs-lint commit .git/COMMIT_EDITMSG --config vcs-lint.toml
 ```
 
 ```
@@ -34,7 +36,7 @@ error: invalid branch name `add-matcher`
 
 See `vcs-lint --help` for options, and the documents below for the detailed rules:
 
-- [Command line](docs/cli.md): commands, list options, environment variables, output and exit status.
+- [Command line](docs/cli.md): commands, list options, config file, environment variables, output and exit status.
 - [`vcs-lint branch`](docs/branch.md)
 - [`vcs-lint commit`](docs/commit.md)
 

@@ -2,7 +2,7 @@
 
 use clap::{Args, ValueEnum};
 
-use super::{ListClapValues, TypeClapArgs};
+use super::{ConfigClapArgs, ListClapValues, TypeClapArgs};
 use crate::resolve::branch::BranchRawConfig;
 
 #[derive(Debug, Args)]
@@ -43,6 +43,8 @@ pub struct BranchClapArgs {
         help = "Whether a detached HEAD passes\n[default: allow]"
     )]
     detached: Option<BranchDetachedClapRule>,
+    #[command(flatten)]
+    pub(super) config: ConfigClapArgs,
 }
 
 /// Whether a detached HEAD passes, as written.

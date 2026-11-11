@@ -159,6 +159,85 @@ vcs-lint commit COMMIT_EDITMSG --type wip --type-defaults always # the defaults 
 vcs-lint commit COMMIT_EDITMSG --type wip                        # wip alone
 ```
 
+## Config file
+
+`branch` and `commit` read options from the TOML file given with
+`--config <PATH>`, or from the one [`VCS_LINT_CONFIG`](#vcs_lint_config) names
+when `--config` is not given, so every place that runs vcs-lint, such as hooks
+and CI, can share the same rules. `PATH` is relative to the current directory.
+No file is read unless one is given.
+
+```toml
+type = ["feat", "fix", "docs"]
+
+[branch]
+protected = ["main"]
+
+[commit]
+scope = ["root"]
+scope-mode = "required"
+```
+
+### Keys
+
+A key is the long name of an option, without `--`, written at the top level or
+in a `[branch]` or a `[commit]` table, each optional:
+
+- A key at the top level is read by every command that has the option, and
+  ignored by the others: `type` by both commands, `scope` by `commit` only.
+- A key in a table is read by its command only.
+
+A [list option](#list-options) is an array of strings, each counting as the
+value of one flag: `scope = ["root", "cli"]` means `--scope root --scope cli`,
+and `scope = []` gives no flag. Any other option is a string, such as
+`scope-mode = "required"`.
+
+The arguments, such as `NAME` and `FILE`, `--help` and `--config` cannot be
+written.
+
+### Reading options
+
+The keys a command reads, those at the top level and then those in its table,
+mean the same as their options given in that order at the start of the command
+line. The rules of the command line apply to them as they are, so the command
+line adds to the file:
+
+```
+$ vcs-lint commit COMMIT_EDITMSG --config vcs-lint.toml --scope cli   # root and cli
+```
+
+An option other than a list option cannot be given twice, whether in the file
+and on the command line or both at the top level and in a table, and a value
+the command line rejects is rejected in the file as well. Both make the command
+line syntactically invalid, which fails with status `3`:
+
+```
+$ vcs-lint commit COMMIT_EDITMSG --config vcs-lint.toml --scope-mode optional
+error: the argument '--scope-mode <MODE>' cannot be used multiple times
+```
+
+### Invalid files
+
+A file that does not exist, cannot be read or is not TOML fails with status
+`2`, as does a file holding an invalid key: a key at the top level that no
+command has, a key in a table that its command does not have, or a value that
+is not of the type of its option. Every key is checked whichever command runs,
+so a file is valid for both commands or for neither, and every invalid key is
+reported at once:
+
+```
+$ vcs-lint commit COMMIT_EDITMSG --config vcs-lint.toml
+error: invalid config file `vcs-lint.toml`
+  unknown key `branch.scope`
+    `vcs-lint branch` has no `--scope`
+  invalid value of `commit.scope-mode`
+    expected a string
+```
+
+The file is read once the rest of the command line is found valid, so help,
+the version and a syntactically invalid command line are printed without
+reading it.
+
 ## Environment variables
 
 ### `VCS_LINT_REQUIRED_VERSION`
@@ -192,6 +271,20 @@ error: invalid version "v0.2" in `VCS_LINT_REQUIRED_VERSION`
 
 vcs-lint released before this variable ignores it.
 
+### `VCS_LINT_CONFIG`
+
+The [config file](#config-file) that `branch` and `commit` read when
+`--config` is not given, relative to the current directory. It is read by both
+commands, as the file has a table for each, so it can be set once for every
+place that runs vcs-lint:
+
+```sh
+export VCS_LINT_CONFIG=vcs-lint.toml
+```
+
+An empty value counts as unset. vcs-lint released before this variable ignores
+it.
+
 ## Output
 
 Violations and errors are written to standard error. Nothing is written on
@@ -203,6 +296,6 @@ success.
 |---|---|
 | `0` | No violation, or help or the version was printed. |
 | `1` | A violation was found. |
-| `2` | A runtime error occurred, so nothing was linted. |
-| `3` | The command line is syntactically invalid. |
+| `2` | A runtime error occurred, such as a [config file](#config-file) that cannot be read, so nothing was linted. |
+| `3` | The command line, including the options read from the [config file](#config-file), is syntactically invalid. |
 | `4` | The running vcs-lint is older than the [required version](#vcs_lint_required_version), or the required version is invalid, so nothing was run. |

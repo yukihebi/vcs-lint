@@ -391,6 +391,9 @@ fn prints_help() {
               - optional:  Headers may have an allowed scope, or none
               - forbidden: Headers must not have a scope; `--scope` is ignored
 
+          --config <PATH>
+              TOML file whose options are read before the command line; `VCS_LINT_CONFIG` when omitted
+
       -h, --help
               Print help (see a summary with '-h')
     --- stderr
