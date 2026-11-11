@@ -133,8 +133,7 @@ fn adds_directories_to_protected_branches() {
     exit: 1
     --- stdout
     --- stderr
-    error: direct commits to `b` are not allowed
-      create a branch and open a pull request instead
+    error: branch `b` is protected
     ");
 }
 

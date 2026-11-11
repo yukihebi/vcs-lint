@@ -36,8 +36,7 @@ fn reads_branch_sharing_its_name_with_tag() {
     exit: 1
     --- stdout
     --- stderr
-    error: direct commits to `main` are not allowed
-      create a branch and open a pull request instead
+    error: branch `main` is protected
     ");
 }
 
@@ -55,8 +54,7 @@ fn applies_detached_head_rule_to_detached_head() {
     exit: 1
     --- stdout
     --- stderr
-    error: commits on a detached HEAD are not allowed
-      switch to a branch or create one before committing
+    error: a detached HEAD is not allowed
     ");
 }
 

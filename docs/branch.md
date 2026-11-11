@@ -12,8 +12,7 @@ vcs-lint branch [OPTIONS] [NAME]
 $ vcs-lint branch feat/add-matcher --protected main
 
 $ vcs-lint branch main --protected main,develop
-error: direct commits to `main` are not allowed
-  create a branch and open a pull request instead
+error: branch `main` is protected
 
 $ vcs-lint branch feature/Add_Matcher --type feat,fix
 error: invalid branch name `feature/Add_Matcher`
@@ -23,8 +22,7 @@ error: invalid branch name `feature/Add_Matcher`
     expected: lowercase kebab-case starting with a letter, e.g. `add-matcher`
 
 $ vcs-lint branch HEAD --detached deny
-error: commits on a detached HEAD are not allowed
-  switch to a branch or create one before committing
+error: a detached HEAD is not allowed
 ```
 
 As a Git `pre-commit` hook, linting the [current branch](#current-branch):
@@ -33,6 +31,9 @@ As a Git `pre-commit` hook, linting the [current branch](#current-branch):
 #!/bin/sh
 exec vcs-lint branch --protected main --detached deny
 ```
+
+The rules and their messages do not depend on where the command runs, so it
+can also run in a `pre-push` hook or in CI.
 
 ## Arguments
 
@@ -119,7 +120,10 @@ the format apply to it; `--detached` alone decides whether it passes.
 | `--detached` | Result for `HEAD` |
 |---|---|
 | `allow`, or not given | OK |
-| `deny` | commits on a detached HEAD not allowed |
+| `deny` | detached HEAD not allowed |
+
+CI often checks out a pull request on a detached HEAD, where `--detached deny`
+fails.
 
 Any other `NAME`, such as `head` or `feat/HEAD`, is a branch name, linted as
 below.
@@ -132,7 +136,7 @@ With protected branches `main`:
 
 | `NAME` | Result |
 |---|---|
-| `main` | direct commits not allowed |
+| `main` | protected |
 | `feat/main` | linted as below |
 
 ### Format

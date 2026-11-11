@@ -25,8 +25,7 @@ fn rejects_protected_branch_without_checking_format() {
     exit: 1
     --- stdout
     --- stderr
-    error: direct commits to `main` are not allowed
-      create a branch and open a pull request instead
+    error: branch `main` is protected
     ");
 }
 
@@ -94,8 +93,7 @@ fn rejects_detached_head_when_denied() {
     exit: 1
     --- stdout
     --- stderr
-    error: commits on a detached HEAD are not allowed
-      switch to a branch or create one before committing
+    error: a detached HEAD is not allowed
     ");
 }
 
@@ -223,7 +221,7 @@ fn prints_help() {
               - never:  Never allowed
 
           --protected <BRANCH>
-              Branch that must not be committed to directly, given as repeated flags or comma-separated values
+              Branch that fails whatever its format, given as repeated flags or comma-separated values
 
           --protected-dir <DIR>
               Directory whose subdirectories in the git index are protected branches, given as repeated flags or comma-separated values
@@ -232,7 +230,7 @@ fn prints_help() {
               Branch excluded from the protected branches, given as repeated flags or comma-separated values
 
           --detached <RULE>
-              Whether a detached HEAD, given as `HEAD`, passes
+              Whether a detached HEAD passes
               [default: allow]
 
               Possible values:
