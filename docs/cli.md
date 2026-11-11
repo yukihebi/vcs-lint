@@ -159,6 +159,39 @@ vcs-lint commit COMMIT_EDITMSG --type wip --type-defaults always # the defaults 
 vcs-lint commit COMMIT_EDITMSG --type wip                        # wip alone
 ```
 
+## Environment variables
+
+### `VCS_LINT_REQUIRED_VERSION`
+
+The minimum version of vcs-lint required, such as `0.2.0`. When the running
+vcs-lint is older, every command fails with status `4` before the command line
+is read, `--help` and `--version` included, as an older vcs-lint may not know
+the options the command line uses:
+
+```
+$ VCS_LINT_REQUIRED_VERSION=0.2.0 vcs-lint commit COMMIT_EDITMSG --scope-dir crates
+error: vcs-lint 0.2.0 or later is required, but this is 0.1.0-alpha.6
+  required by `VCS_LINT_REQUIRED_VERSION`
+```
+
+A version is written `MAJOR.MINOR.PATCH`, optionally followed by `-alpha.N`,
+`-beta.N` or `-rc.N`, with numbers in decimal without leading zeros. Versions
+are ordered by SemVer precedence:
+`0.1.0-alpha.6` < `0.1.0-alpha.10` < `0.1.0-beta.0` < `0.1.0-rc.1` < `0.1.0`.
+Build metadata such as `+build` takes no part in the order, so it is not
+accepted.
+
+Whitespace around the value is trimmed, and a blank value requires nothing. A
+value that is not a version fails with status `4` as well:
+
+```
+$ VCS_LINT_REQUIRED_VERSION=v0.2 vcs-lint commit COMMIT_EDITMSG
+error: invalid version "v0.2" in `VCS_LINT_REQUIRED_VERSION`
+  expected `MAJOR.MINOR.PATCH`, optionally followed by `-alpha.N`, `-beta.N` or `-rc.N`
+```
+
+vcs-lint released before this variable ignores it.
+
 ## Output
 
 Violations and errors are written to standard error. Nothing is written on
@@ -172,3 +205,4 @@ success.
 | `1` | A violation was found. |
 | `2` | A runtime error occurred, so nothing was linted. |
 | `3` | The command line is syntactically invalid. |
+| `4` | The running vcs-lint is older than the [required version](#vcs_lint_required_version), or the required version is invalid, so nothing was run. |
