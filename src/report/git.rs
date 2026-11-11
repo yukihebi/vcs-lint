@@ -66,7 +66,11 @@ impl Display for GitError {
             } => {
                 write!(f, "`{command}` failed with {status}")?;
                 for line in stderr.lines() {
-                    write!(f, "\n  {line}")?;
+                    if line.is_empty() {
+                        writeln!(f)?;
+                    } else {
+                        write!(f, "\n  {line}")?;
+                    }
                 }
                 Ok(())
             }
