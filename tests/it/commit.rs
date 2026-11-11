@@ -391,6 +391,14 @@ fn prints_help() {
               - optional:  Headers may have an allowed scope, or none
               - forbidden: Headers must not have a scope; `--scope` is ignored
 
+          --severity <LEVEL>
+              How violations are reported
+              [default: error]
+
+              Possible values:
+              - error:   Violations are reported as errors and fail the run
+              - warning: Violations are reported as warnings and do not fail the run
+
           --config <PATH>
               TOML file whose options are read before the command line; `VCS_LINT_CONFIG` when omitted
 

@@ -7,7 +7,7 @@ use std::{
 
 use clap::{Args, ValueEnum};
 
-use super::{ConfigClapArgs, ListClapValues, TypeClapArgs};
+use super::{ConfigClapArgs, ListClapValues, SeverityClapArgs, TypeClapArgs};
 use crate::resolve::commit::CommitRawConfig;
 
 #[derive(Debug, Args)]
@@ -45,6 +45,8 @@ pub struct CommitClapArgs {
         help = "Whether commit headers have a scope\n[default: auto]"
     )]
     scope_mode: Option<CommitScopeClapMode>,
+    #[command(flatten)]
+    pub(super) severity: SeverityClapArgs,
     #[command(flatten)]
     pub(super) config: ConfigClapArgs,
 }

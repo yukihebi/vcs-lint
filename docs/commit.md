@@ -64,6 +64,8 @@ exec vcs-lint commit "$1" --scope root --scope-dir crates
 - `--scope-mode <MODE>`: whether headers have a scope, `auto`, `required`,
   `optional` or `forbidden` (see [Scope mode](#scope-mode)). `auto` when not
   given.
+- `--severity <LEVEL>`: how violations are reported, `error` or `warning`
+  (see [Severity](cli.md#severity)). `error` when not given.
 - `--config <PATH>`: reads options from a
   [config file](cli.md#config-file). The file named by
   [`VCS_LINT_CONFIG`](cli.md#vcs_lint_config) when not given.

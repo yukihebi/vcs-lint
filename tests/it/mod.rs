@@ -14,6 +14,7 @@ mod commit;
 mod config_file;
 mod list_dir;
 mod required_version;
+mod severity;
 mod workdir;
 
 use std::{

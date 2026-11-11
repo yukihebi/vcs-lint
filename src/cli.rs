@@ -119,6 +119,15 @@ impl ClapCommand {
         }
     }
 
+    /// How violations are reported, `error` when `--severity` is omitted.
+    pub fn severity(&self) -> SeverityClapLevel {
+        let severity = match self {
+            Self::Branch(args) => &args.severity,
+            Self::Commit(args) => &args.severity,
+        };
+        severity.level.unwrap_or_default()
+    }
+
     /// The config file given with `--config`.
     pub fn config(&self) -> Option<&Path> {
         let config = match self {
@@ -222,6 +231,26 @@ impl CommandOption<'_> {
             Err(ValueRejection::NotPossible { possible })
         }
     }
+}
+
+#[derive(Debug, Args)]
+struct SeverityClapArgs {
+    #[arg(
+        long = "severity",
+        value_name = "LEVEL",
+        help = "How violations are reported\n[default: error]"
+    )]
+    level: Option<SeverityClapLevel>,
+}
+
+/// How violations are reported, as written.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum SeverityClapLevel {
+    /// Violations are reported as errors and fail the run
+    #[default]
+    Error,
+    /// Violations are reported as warnings and do not fail the run
+    Warning,
 }
 
 #[derive(Debug, Args)]

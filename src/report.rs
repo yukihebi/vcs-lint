@@ -41,6 +41,11 @@ pub enum RunStatus {
     BranchLintError(BranchLintError),
     /// The commit message breaks a rule. Exits with `1`.
     CommitLintError(CommitLintError),
+    /// The branch name breaks a rule, reported as a warning. Exits with `0`.
+    BranchLintWarning(BranchLintError),
+    /// The commit message breaks a rule, reported as a warning. Exits with
+    /// `0`.
+    CommitLintWarning(CommitLintError),
 }
 
 impl RunStatus {
@@ -62,11 +67,18 @@ impl RunStatus {
             Self::CommitResolveError(err) => Self::fail(err, 2),
             Self::BranchLintError(err) => Self::fail(err, 1),
             Self::CommitLintError(err) => Self::fail(err, 1),
+            Self::BranchLintWarning(err) => Self::warn(err),
+            Self::CommitLintWarning(err) => Self::warn(err),
         }
     }
 
     fn fail(err: impl Display, code: u8) -> ExitCode {
         eprintln!("error: {err}");
         ExitCode::from(code)
+    }
+
+    fn warn(err: impl Display) -> ExitCode {
+        eprintln!("warning: {err}");
+        ExitCode::SUCCESS
     }
 }
