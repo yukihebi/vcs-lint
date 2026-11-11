@@ -24,10 +24,10 @@ pub enum RunStatus {
     /// with `0`.
     Info(clap::Error),
     /// The running vcs-lint does not meet the required version, so the
-    /// command line is not read. Exits with `4`.
+    /// command line is not read. Exits with `3`.
     RequiredVersionError(RequiredVersionError),
     /// The command line does not follow the syntax of the commands. Exits
-    /// with `3`.
+    /// with `2`.
     SyntaxError(clap::Error),
     /// The config file cannot be read, so nothing is linted. Exits with `2`.
     ConfigFileError(ConfigFileError),
@@ -52,10 +52,10 @@ impl RunStatus {
                 let _ = info.print();
                 ExitCode::SUCCESS
             }
-            Self::RequiredVersionError(err) => Self::fail(err, 4),
+            Self::RequiredVersionError(err) => Self::fail(err, 3),
             Self::SyntaxError(err) => {
                 let _ = err.print();
-                ExitCode::from(3)
+                ExitCode::from(2)
             }
             Self::ConfigFileError(err) => Self::fail(err, 2),
             Self::BranchResolveError(err) => Self::fail(err, 2),

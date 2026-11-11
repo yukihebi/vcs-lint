@@ -43,7 +43,7 @@ fn runs_when_required_version_is_blank() {
 fn fails_when_required_version_is_newer() {
     let run = Run::with_vars(&["branch", "feat/add-matcher"], &[(VAR, NEWER)]);
     assert_status!(run, RunStatus::RequiredVersionError(_));
-    assert_eq!(run.output.code, Some(4));
+    assert_eq!(run.output.code, Some(3));
     assert_eq!(run.output.stdout, "");
     assert_eq!(run.output.stderr, unmet_stderr(NEWER));
 }
@@ -53,7 +53,7 @@ fn fails_on_invalid_required_version() {
     let run = Run::with_vars(&["branch", "feat/add-matcher"], &[(VAR, " 0.2.0+build ")]);
     assert_status!(run, RunStatus::RequiredVersionError(_));
     assert_snapshot!(run, @r#"
-    exit: 4
+    exit: 3
     --- stdout
     --- stderr
     error: invalid version "0.2.0+build" in `VCS_LINT_REQUIRED_VERSION`
@@ -71,7 +71,7 @@ fn fails_before_reading_command_line() {
     ] {
         let run = Run::with_vars(args, &[(VAR, NEWER)]);
         assert_status!(run, RunStatus::RequiredVersionError(_));
-        assert_eq!(run.output.code, Some(4), "{args:?}");
+        assert_eq!(run.output.code, Some(3), "{args:?}");
         assert_eq!(run.output.stderr, unmet_stderr(NEWER), "{args:?}");
     }
 }
@@ -80,5 +80,5 @@ fn fails_before_reading_command_line() {
 fn fails_on_invalid_required_version_before_reading_command_line() {
     let run = Run::with_vars(&["--version"], &[(VAR, "latest")]);
     assert_status!(run, RunStatus::RequiredVersionError(_));
-    assert_eq!(run.output.code, Some(4));
+    assert_eq!(run.output.code, Some(3));
 }

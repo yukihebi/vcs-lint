@@ -250,7 +250,7 @@ reading it.
 ### `VCS_LINT_REQUIRED_VERSION`
 
 The minimum version of vcs-lint required, such as `0.2.0`. When the running
-vcs-lint is older, every command fails with status `4` before the command line
+vcs-lint is older, every command fails with status `3` before the command line
 is read, `--help` and `--version` included, as an older vcs-lint may not know
 the options the command line uses:
 
@@ -268,7 +268,7 @@ Build metadata such as `+build` takes no part in the order, so it is not
 accepted.
 
 Whitespace around the value is trimmed, and a blank value requires nothing. A
-value that is not a version fails with status `4` as well:
+value that is not a version fails with status `3` as well:
 
 ```
 $ VCS_LINT_REQUIRED_VERSION=v0.2 vcs-lint commit COMMIT_EDITMSG
@@ -303,6 +303,5 @@ success.
 |---|---|
 | `0` | No violation, or help or the version was printed. |
 | `1` | A violation was found. |
-| `2` | A runtime error occurred, such as a [config file](#config-file) that cannot be read, so nothing was linted. |
-| `3` | The command line is syntactically invalid. |
-| `4` | The running vcs-lint is older than the [required version](#vcs_lint_required_version), or the required version is invalid, so nothing was run. |
+| `2` | An error occurred, such as an invalid command line or a [config file](#config-file) that cannot be read, so nothing was linted. |
+| `3` | The running vcs-lint is older than the [required version](#vcs_lint_required_version), or the required version is invalid, so nothing was run. |
