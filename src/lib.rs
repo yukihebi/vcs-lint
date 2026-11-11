@@ -18,14 +18,14 @@ mod report;
 mod resolve;
 mod version;
 
-/// Runs the command line `args`, which exclude the program name, with the
-/// environment variables `vars`, without printing anything;
-/// [`RunStatus::report`] prints how it ends.
+/// Runs the command line `args`, which exclude the program name, with `var`
+/// giving the value of the environment variable named by its argument, without
+/// printing anything; [`RunStatus::report`] prints how it ends.
 ///
 /// The required version is checked before anything else, as an older
 /// vcs-lint may not know the options the command line uses.
-pub fn run(args: Vec<OsString>, vars: impl IntoIterator<Item = (OsString, OsString)>) -> RunStatus {
-    let env = Env::from_vars(vars);
+pub fn run(args: Vec<OsString>, var: impl Fn(&str) -> Option<OsString>) -> RunStatus {
+    let env = Env::read(var);
     if let Some(required) = &env.required_version
         && let Err(err) = Version::CURRENT.require(required)
     {

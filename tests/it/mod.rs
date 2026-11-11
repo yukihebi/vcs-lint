@@ -52,8 +52,11 @@ impl Run {
         Self {
             status: vcs_lint::run(
                 args.iter().map(|arg| arg.as_ref().to_owned()).collect(),
-                vars.iter()
-                    .map(|&(name, value)| (OsString::from(name), OsString::from(value))),
+                |name| {
+                    vars.iter()
+                        .find(|&&(set, _)| set == name)
+                        .map(|&(_, value)| OsString::from(value))
+                },
             ),
             output,
         }
