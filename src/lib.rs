@@ -3,7 +3,7 @@
 
 use std::ffi::OsString;
 
-use cli::{ClapCommand, Parsed};
+use cli::{ClapCommand, Parsed, SeverityClapLevel};
 use config_file::ConfigFile;
 use env::Env;
 use git::Git;
@@ -59,6 +59,7 @@ fn run_parsed(parsed: Result<Parsed, clap::Error>) -> RunStatus {
 
 /// Resolves and lints what `command` refers to.
 fn run_command(command: ClapCommand) -> RunStatus {
+    let severity = command.severity();
     match command {
         ClapCommand::Branch(args) => {
             let (target, rules) = match args.into_raw_config().resolve(&Git) {
@@ -67,7 +68,10 @@ fn run_command(command: ClapCommand) -> RunStatus {
             };
             match rules.lint(&target) {
                 Ok(()) => RunStatus::Success,
-                Err(err) => RunStatus::BranchLintError(err),
+                Err(err) => match severity {
+                    SeverityClapLevel::Error => RunStatus::BranchLintError(err),
+                    SeverityClapLevel::Warning => RunStatus::BranchLintWarning(err),
+                },
             }
         }
         ClapCommand::Commit(args) => {
@@ -77,7 +81,10 @@ fn run_command(command: ClapCommand) -> RunStatus {
             };
             match rules.lint(&target) {
                 Ok(()) => RunStatus::Success,
-                Err(err) => RunStatus::CommitLintError(err),
+                Err(err) => match severity {
+                    SeverityClapLevel::Error => RunStatus::CommitLintError(err),
+                    SeverityClapLevel::Warning => RunStatus::CommitLintWarning(err),
+                },
             }
         }
     }

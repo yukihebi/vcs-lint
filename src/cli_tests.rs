@@ -6,8 +6,8 @@ use std::{
 use clap::error::ErrorKind;
 
 use super::{
-    ClapCommand, CommandName, Parsed, TypeDefaultsClapMode, branch::BranchDetachedClapRule,
-    commit::CommitScopeClapMode,
+    ClapCommand, CommandName, Parsed, SeverityClapLevel, TypeDefaultsClapMode,
+    branch::BranchDetachedClapRule, commit::CommitScopeClapMode,
 };
 use crate::{
     report::config_file::ValueRejection,
@@ -385,6 +385,34 @@ fn rejects_command_line_outside_syntax() {
 }
 
 #[test]
+fn severity_accepts_each_level_in_both_commands() {
+    for (written, level) in [
+        ("error", SeverityClapLevel::Error),
+        ("warning", SeverityClapLevel::Warning),
+    ] {
+        assert_eq!(
+            command(&["branch", "--severity", written]).severity(),
+            level,
+            "{written}"
+        );
+        assert_eq!(
+            command(&["commit", "missing", "--severity", written]).severity(),
+            level,
+            "{written}"
+        );
+    }
+}
+
+#[test]
+fn severity_is_error_when_omitted() {
+    assert_eq!(command(&["branch"]).severity(), SeverityClapLevel::Error);
+    assert_eq!(
+        command(&["commit", "missing"]).severity(),
+        SeverityClapLevel::Error
+    );
+}
+
+#[test]
 fn config_is_given_to_both_commands() {
     for args in [
         &["branch", "--config", "vcs-lint.toml"][..],
@@ -448,6 +476,7 @@ fn command_options_are_those_with_long_names() {
             ("protected-dir", true),
             ("protected-exclude", true),
             ("detached", false),
+            ("severity", false),
             ("config", false),
         ])
     );
@@ -462,6 +491,7 @@ fn command_options_are_those_with_long_names() {
             ("scope-dir", true),
             ("scope-exclude", true),
             ("scope-mode", false),
+            ("severity", false),
             ("config", false),
         ])
     );

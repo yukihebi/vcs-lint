@@ -297,11 +297,32 @@ it.
 Violations and errors are written to standard error. Nothing is written on
 success.
 
+### Severity
+
+`branch` and `commit` take `--severity <LEVEL>`, which decides how violations
+are reported:
+
+| Level | Violations |
+|---|---|
+| `error`, or not given | reported as errors, failing with status `1` |
+| `warning` | reported as warnings, exiting with status `0` |
+
+A warning is worded as the error would be, starting with `warning:` instead, so
+a rule can be introduced without blocking anything until it is followed:
+
+```
+$ vcs-lint branch main --protected main --severity warning
+warning: branch `main` is protected
+```
+
+Only violations change. Errors keep their status, as nothing was linted, and
+passing on them would hide that the check did not run.
+
 ## Exit status
 
 | Status | Meaning |
 |---|---|
-| `0` | No violation, or help or the version was printed. |
-| `1` | A violation was found. |
+| `0` | No violation, violations were reported as [warnings](#severity), or help or the version was printed. |
+| `1` | A violation was found and reported as an error. |
 | `2` | An error occurred, such as an invalid command line or a [config file](#config-file) that cannot be read, so nothing was linted. |
 | `3` | The running vcs-lint is older than the [required version](#vcs_lint_required_version), or the required version is invalid, so nothing was run. |
