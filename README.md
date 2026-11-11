@@ -7,8 +7,8 @@ A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Sy
 - All rules can be passed as command line arguments.
 - The file path from Git's `commit-msg` hook can be passed as-is.
 - Lints branch names of the form `<type>/<name>`,
-  rejects direct commits to protected branches such as `main`,
-  and can reject commits on a detached HEAD.
+  rejects protected branches such as `main`,
+  and can reject a detached HEAD.
   The current branch is read from Git when no name is given.
 - Lints commit message headers of the form `<type>: <subject>`,
   or `<type>(<scope>): <subject>`.

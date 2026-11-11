@@ -22,12 +22,12 @@ pub enum BranchLintTarget {
 pub struct BranchLintRules {
     /// Types a branch name may start with.
     pub types: NameSet,
-    /// Branches that must not receive direct commits.
+    /// Branches that fail whatever their format.
     pub protected: NameSet,
     pub detached: BranchDetachedRule,
 }
 
-/// Whether commits on a detached HEAD are allowed.
+/// Whether a detached HEAD passes.
 #[derive(Debug, PartialEq, Eq)]
 pub enum BranchDetachedRule {
     Allowed,

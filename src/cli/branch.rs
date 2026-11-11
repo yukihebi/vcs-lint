@@ -13,8 +13,8 @@ pub struct BranchClapArgs {
     branch: Option<String>,
     #[command(flatten)]
     types: TypeClapArgs,
-    /// Branch that must not be committed to directly, given as repeated flags
-    /// or comma-separated values
+    /// Branch that fails whatever its format, given as repeated flags or
+    /// comma-separated values
     #[arg(
         long = "protected",
         value_name = "BRANCH",
@@ -40,7 +40,7 @@ pub struct BranchClapArgs {
     #[arg(
         long = "detached",
         value_name = "RULE",
-        help = "Whether a detached HEAD, given as `HEAD`, passes\n[default: allow]"
+        help = "Whether a detached HEAD passes\n[default: allow]"
     )]
     detached: Option<BranchDetachedClapRule>,
 }
