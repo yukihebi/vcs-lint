@@ -294,5 +294,5 @@ fn reads_no_file_for_help() {
 fn reads_no_file_when_command_line_is_invalid() {
     let run = Run::with_vars(&["commit"], &[(VAR, "missing.toml")]);
     assert_status!(run, RunStatus::SyntaxError(_));
-    assert_eq!(run.output.code, Some(3));
+    assert_eq!(run.output.code, Some(2));
 }

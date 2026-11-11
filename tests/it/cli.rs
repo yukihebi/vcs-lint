@@ -47,7 +47,7 @@ fn rejects_unknown_option() {
     let run = Run::new(&["branch", "feat/x", "--scope", "core"]);
     assert_status!(run, RunStatus::SyntaxError(_));
     assert_snapshot!(run, @"
-    exit: 3
+    exit: 2
     --- stdout
     --- stderr
     error: unexpected argument '--scope' found
@@ -65,7 +65,7 @@ fn rejects_list_flag_without_values() {
     let run = Run::new(&["branch", "feat/x", "--type", "feat", "--type", ""]);
     assert_status!(run, RunStatus::SyntaxError(_));
     assert_snapshot!(run, @"
-    exit: 3
+    exit: 2
     --- stdout
     --- stderr
     error: invalid value '' for '--type <TYPE>': every value is empty
@@ -83,7 +83,7 @@ fn rejects_non_utf8_argument() {
     let run = Run::new(&[OsStr::new("branch"), branch]);
     assert_status!(run, RunStatus::SyntaxError(_));
     assert_snapshot!(run, @"
-    exit: 3
+    exit: 2
     --- stdout
     --- stderr
     error: invalid UTF-8 was detected in one or more arguments
@@ -99,7 +99,7 @@ fn rejects_missing_subcommand() {
     let run = Run::new(&[] as &[&str]);
     assert_status!(run, RunStatus::SyntaxError(_));
     assert_snapshot!(run, @"
-    exit: 3
+    exit: 2
     --- stdout
     --- stderr
     A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Systems
