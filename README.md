@@ -16,6 +16,14 @@ A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Sy
 - Reports every violation at once.
 - Failure can be detected by the exit status.
 
+## Installation
+
+Build and install with the [Rust](https://rust-lang.org/) toolchain:
+
+```sh
+cargo install --locked --git https://github.com/yukihebi/vcs-lint
+```
+
 ## Usage
 
 ```sh
