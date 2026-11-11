@@ -8,7 +8,7 @@ use derive_more::Display;
 use super::git::GitError;
 use crate::{
     git::object_id::GitObjectId,
-    lint::history::{HistoryBase, HistoryBaseSource},
+    lint::history::{HistoryBase, HistoryBaseSource, HistoryRule},
 };
 
 /// Why the revision or the tip of its base cannot be resolved.
@@ -68,6 +68,12 @@ pub enum HistoryLintError {
 }
 
 impl HistoryLintError {
+    /// The rules the history breaks: whichever way it is behind, it breaks
+    /// the rule of its base.
+    pub fn broken_rules(&self) -> Vec<HistoryRule> {
+        vec![HistoryRule::Base]
+    }
+
     fn commits(count: u64) -> String {
         match count {
             1 => "1 commit".to_owned(),

@@ -28,6 +28,13 @@ pub struct HistoryLintRules {
     pub base: HistoryBase,
 }
 
+/// A rule of the history of a revision, which can be given a hint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HistoryRule {
+    /// The history contains the tip of the base branch.
+    Base,
+}
+
 /// A base branch, and where its tip is read from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HistoryBase {

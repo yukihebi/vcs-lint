@@ -54,6 +54,8 @@ exec vcs-lint commit "$1" --scope root --scope-dir crates
 - `--type-defaults <MODE>`: when the default types are included in the
   [allowed types](#definitions), `auto`, `always` or `never` (see
   [Defaults](cli.md#defaults)). `auto` when not given.
+- `--type-hint <TEXT>`: a [hint](cli.md#hints) printed when the type is not
+  one of the [allowed types](#definitions).
 - `--scope <SCOPE>`: adds to the [allowed scopes](#definitions). A
   [list option](cli.md#list-options).
 - `--scope-dir <DIR>`: adds the directories under `DIR` to the
@@ -64,6 +66,11 @@ exec vcs-lint commit "$1" --scope root --scope-dir crates
 - `--scope-mode <MODE>`: whether headers have a scope, `auto`, `required`,
   `optional` or `forbidden` (see [Scope mode](#scope-mode)). `auto` when not
   given.
+- `--scope-hint <TEXT>`: a [hint](cli.md#hints) printed when the scope is
+  unexpected, missing or not one of the [allowed scopes](#definitions).
+- `--format-hint <TEXT>`: a [hint](cli.md#hints) printed when the message is
+  empty, the header is malformed, or it has no single space after `:` or an
+  empty subject (see [Header](#header)).
 - `--severity <LEVEL>`: how violations are reported, `error` or `warning`
   (see [Severity](cli.md#severity)). `error` when not given.
 - `--config <PATH>`: reads options from a

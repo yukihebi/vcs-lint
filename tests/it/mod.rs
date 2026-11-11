@@ -12,6 +12,7 @@ mod branch;
 mod cli;
 mod commit;
 mod config_file;
+mod hint;
 mod history;
 mod list_dir;
 mod required_version;

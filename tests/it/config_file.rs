@@ -296,3 +296,66 @@ fn reads_no_file_when_command_line_is_invalid() {
     assert_status!(run, RunStatus::SyntaxError(_));
     assert_eq!(run.output.code, Some(2));
 }
+
+#[test]
+fn reads_hints_from_top_level_and_tables() {
+    let file = config(
+        "type-hint = \"types are listed in CONTRIBUTING.md\"\n\
+         \n\
+         [branch]\n\
+         protected = [\"main\"]\n\
+         protected-hint = \"\"\"\n\
+         update main through a pull request\n\
+         \"\"\"\n",
+    );
+    let run = Run::new(&["branch", "main", "--config", path(&file)]);
+    assert_status!(run, RunStatus::BranchLintError(_));
+    assert_snapshot!(run, @"
+    exit: 1
+    --- stdout
+    --- stderr
+    error: branch `main` is protected
+    hint: update main through a pull request
+    ");
+    let run = Run::new(&["branch", "fix/x", "--type", "feat", "--config", path(&file)]);
+    assert_status!(run, RunStatus::BranchLintError(_));
+    assert_snapshot!(run, @"
+    exit: 1
+    --- stdout
+    --- stderr
+    error: invalid branch name `fix/x`
+      unknown type `fix`
+        allowed types: feat
+    hint: types are listed in CONTRIBUTING.md
+    ");
+    let run = Run::commit("fix: x\n", &["--type", "feat", "--config", path(&file)]);
+    assert_status!(run, RunStatus::CommitLintError(_));
+    assert_snapshot!(run, @"
+    exit: 1
+    --- stdout
+    --- stderr
+    error: invalid commit header `fix: x`
+      unknown type `fix`
+        allowed types: feat
+    hint: types are listed in CONTRIBUTING.md
+    ");
+}
+
+#[test]
+fn reports_text_that_is_not_hint_by_its_key() {
+    let repo = repo("feat: add matcher\n");
+    repo.write(
+        "vcs-lint.toml",
+        "[branch]\nprotected-hint = \"git branch -m {new}\"\nformat-hint = \"\"\n",
+    );
+    assert_snapshot!(repo.run(&["branch", "--config", "vcs-lint.toml"]), @r#"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: invalid config file `vcs-lint.toml`
+      invalid value "git branch -m {new}" of `branch.protected-hint`
+        placeholder `{new}` is not supported; write `{{` and `}}` for braces
+      invalid value "" of `branch.format-hint`
+        the hint is empty
+    "#);
+}

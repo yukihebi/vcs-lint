@@ -16,6 +16,7 @@ mod cli;
 mod config_file;
 mod env;
 mod git;
+mod hint;
 mod lint;
 mod name_set;
 mod report;
@@ -63,23 +64,35 @@ fn run_parsed(parsed: Result<Parsed, clap::Error>) -> RunStatus {
 fn run_command(command: ClapCommand) -> RunStatus {
     let severity = command.severity();
     match command {
-        ClapCommand::Branch(args) => CommandStatuses::BRANCH.end(
-            args.into_raw_config()
-                .resolve(&Git)
-                .map(|(target, rules)| rules.lint(&target)),
-            severity,
-        ),
-        ClapCommand::Commit(args) => CommandStatuses::COMMIT.end(
-            args.into_raw_config()
-                .resolve(&Git)
-                .map(|(target, rules)| rules.lint(&target)),
-            severity,
-        ),
-        ClapCommand::History(args) => CommandStatuses::HISTORY.end(
-            args.into_raw_config()
-                .resolve(&Git)
-                .map(|(target, rules)| rules.lint(&target)),
-            severity,
-        ),
+        ClapCommand::Branch(args) => {
+            let hints = args.hints();
+            CommandStatuses::BRANCH.end(
+                args.into_raw_config()
+                    .resolve(&Git)
+                    .map(|(target, rules)| rules.lint(&target)),
+                severity,
+                &hints,
+            )
+        }
+        ClapCommand::Commit(args) => {
+            let hints = args.hints();
+            CommandStatuses::COMMIT.end(
+                args.into_raw_config()
+                    .resolve(&Git)
+                    .map(|(target, rules)| rules.lint(&target)),
+                severity,
+                &hints,
+            )
+        }
+        ClapCommand::History(args) => {
+            let hints = args.hints();
+            CommandStatuses::HISTORY.end(
+                args.into_raw_config()
+                    .resolve(&Git)
+                    .map(|(target, rules)| rules.lint(&target)),
+                severity,
+                &hints,
+            )
+        }
     }
 }

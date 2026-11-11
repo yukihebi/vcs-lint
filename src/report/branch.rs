@@ -11,7 +11,7 @@ use super::{
     git::GitError,
     list::{ListResolveError, UnmatchableList},
 };
-use crate::name_set::NameSet;
+use crate::{lint::branch::BranchRule, name_set::NameSet};
 
 /// Why the rules or the branch to lint cannot be resolved.
 #[derive(Debug, PartialEq, Eq, Display)]
@@ -58,6 +58,24 @@ pub enum BranchLintError {
     },
 }
 
+impl BranchLintError {
+    /// The rules the branch breaks, in the order they are reported.
+    pub fn broken_rules(&self) -> Vec<BranchRule> {
+        match self {
+            Self::Detached => vec![BranchRule::Detached],
+            Self::Protected { .. } => vec![BranchRule::Protected],
+            Self::Malformed { .. } => vec![BranchRule::Type],
+            Self::InvalidParts { ty, name, .. } => [
+                ty.as_ref().map(|_| BranchRule::Type),
+                name.as_ref().map(|_| BranchRule::Format),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        }
+    }
+}
+
 impl Display for BranchLintError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -98,3 +116,7 @@ pub struct BranchTypeViolation {
 pub struct BranchNameViolation {
     pub found: String,
 }
+
+#[cfg(test)]
+#[path = "branch_tests.rs"]
+mod tests;

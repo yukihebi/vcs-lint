@@ -10,6 +10,8 @@ use super::{
     branch::BranchDetachedClapRule, commit::CommitScopeClapMode, history::HistoryBaseClapSource,
 };
 use crate::{
+    hint::Hint,
+    lint::{branch::BranchRule, commit::CommitRule, history::HistoryRule},
     report::config_file::ValueRejection,
     resolve::{
         branch::BranchRawConfig, commit::CommitRawConfig, history::HistoryRawConfig,
@@ -515,6 +517,93 @@ fn config_rejects_empty_path() {
     assert_eq!(err.kind(), ErrorKind::InvalidValue);
 }
 
+fn hint(text: &str) -> Hint {
+    Hint::parse(text).unwrap()
+}
+
+#[test]
+fn branch_hints_are_given_to_rules_of_their_options() {
+    let ClapCommand::Branch(args) = command(&[
+        "branch",
+        "--protected-hint=p",
+        "--detached-hint=d",
+        "--type-hint=t",
+        "--format-hint=f",
+    ]) else {
+        panic!("not a branch command");
+    };
+    assert_eq!(
+        args.hints().for_rules(&[
+            BranchRule::Protected,
+            BranchRule::Detached,
+            BranchRule::Type,
+            BranchRule::Format,
+        ]),
+        [hint("p"), hint("d"), hint("t"), hint("f")]
+    );
+}
+
+#[test]
+fn commit_hints_are_given_to_rules_of_their_options() {
+    let ClapCommand::Commit(args) = command(&[
+        "commit",
+        "missing",
+        "--type-hint=t",
+        "--scope-hint=s",
+        "--format-hint=f",
+    ]) else {
+        panic!("not a commit command");
+    };
+    assert_eq!(
+        args.hints()
+            .for_rules(&[CommitRule::Type, CommitRule::Scope, CommitRule::Format]),
+        [hint("t"), hint("s"), hint("f")]
+    );
+}
+
+#[test]
+fn history_hint_is_given_to_rule_of_its_option() {
+    let ClapCommand::History(args) = command(&["history", "--base-hint=b"]) else {
+        panic!("not a history command");
+    };
+    assert_eq!(args.hints().for_rules(&[HistoryRule::Base]), [hint("b")]);
+}
+
+#[test]
+fn hints_are_none_when_omitted() {
+    let (ClapCommand::Branch(branch), ClapCommand::Commit(commit), ClapCommand::History(history)) = (
+        command(&["branch"]),
+        command(&["commit", "missing"]),
+        command(&["history"]),
+    ) else {
+        panic!("not the commands");
+    };
+    let branch_rules = [
+        BranchRule::Protected,
+        BranchRule::Detached,
+        BranchRule::Type,
+        BranchRule::Format,
+    ];
+    assert_eq!(branch.hints().for_rules(&branch_rules), []);
+    let commit_rules = [CommitRule::Type, CommitRule::Scope, CommitRule::Format];
+    assert_eq!(commit.hints().for_rules(&commit_rules), []);
+    assert_eq!(history.hints().for_rules(&[HistoryRule::Base]), []);
+}
+
+#[test]
+fn hint_option_rejects_text_that_is_not_a_hint_with_reason() {
+    let syntax = CommandName::Branch.syntax();
+    let option = syntax.option("protected-hint").unwrap();
+    assert_eq!(option.check("use {{ and }}"), Ok(()));
+    assert_eq!(
+        option.check("{branch}"),
+        Err(ValueRejection::Invalid {
+            reason: "placeholder `{branch}` is not supported; write `{{` and `}}` for braces"
+                .to_owned()
+        })
+    );
+}
+
 #[test]
 fn command_is_named_as_written() {
     assert_eq!(command(&["branch"]).name(), CommandName::Branch);
@@ -548,10 +637,14 @@ fn command_options_are_those_with_long_names() {
             ("type-dir", true),
             ("type-exclude", true),
             ("type-defaults", false),
+            ("type-hint", false),
+            ("format-hint", false),
             ("protected", true),
             ("protected-dir", true),
             ("protected-exclude", true),
+            ("protected-hint", false),
             ("detached", false),
+            ("detached-hint", false),
             ("severity", false),
             ("config", false),
         ])
@@ -563,10 +656,13 @@ fn command_options_are_those_with_long_names() {
             ("type-dir", true),
             ("type-exclude", true),
             ("type-defaults", false),
+            ("type-hint", false),
             ("scope", true),
             ("scope-dir", true),
             ("scope-exclude", true),
             ("scope-mode", false),
+            ("scope-hint", false),
+            ("format-hint", false),
             ("severity", false),
             ("config", false),
         ])
@@ -578,6 +674,7 @@ fn command_options_are_those_with_long_names() {
             ("base-from", false),
             ("remote", false),
             ("network", false),
+            ("base-hint", false),
             ("severity", false),
             ("config", false),
         ])

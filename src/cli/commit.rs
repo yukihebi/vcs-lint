@@ -8,7 +8,11 @@ use std::{
 use clap::{Args, ValueEnum};
 
 use super::{ConfigClapArgs, ListClapValues, SeverityClapArgs, TypeClapArgs};
-use crate::resolve::commit::CommitRawConfig;
+use crate::{
+    hint::{Hint, Hints},
+    lint::commit::CommitRule,
+    resolve::commit::CommitRawConfig,
+};
 
 #[derive(Debug, Args)]
 pub struct CommitClapArgs {
@@ -45,6 +49,13 @@ pub struct CommitClapArgs {
         help = "Whether commit headers have a scope\n[default: auto]"
     )]
     scope_mode: Option<CommitScopeClapMode>,
+    /// Hint printed when the scope is unexpected, missing or not allowed
+    #[arg(long = "scope-hint", value_name = "TEXT", value_parser = Hint::parse)]
+    scope_hint: Option<Hint>,
+    /// Hint printed when the message is empty, or the header is malformed or
+    /// has invalid spacing or an empty subject
+    #[arg(long = "format-hint", value_name = "TEXT", value_parser = Hint::parse)]
+    format_hint: Option<Hint>,
     #[command(flatten)]
     pub(super) severity: SeverityClapArgs,
     #[command(flatten)]
@@ -73,6 +84,15 @@ impl Display for CommitScopeClapMode {
 }
 
 impl CommitClapArgs {
+    /// The hints given to the rules of the command.
+    pub fn hints(&self) -> Hints<CommitRule> {
+        Hints::new([
+            (CommitRule::Type, self.types.hint.clone()),
+            (CommitRule::Scope, self.scope_hint.clone()),
+            (CommitRule::Format, self.format_hint.clone()),
+        ])
+    }
+
     pub fn into_raw_config(self) -> CommitRawConfig {
         let (types, type_defaults) = self.types.into_raw_values();
         CommitRawConfig {

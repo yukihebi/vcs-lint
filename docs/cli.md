@@ -323,6 +323,56 @@ warning: branch `main` is protected
 Only violations change. Errors keep their status, as nothing was linted, and
 passing on them would hide that the check did not run.
 
+### Hints
+
+Rules can each be given a hint, with an option named after the rule, such as
+`--protected-hint` (see the options of each command). When a rule is broken,
+its hint is printed after the report, whether it is reported as an error or as
+a [warning](#severity), with each line starting with `hint:`:
+
+```
+$ vcs-lint branch feature/Add_Matcher --type feat,fix --type-hint 'types are listed in CONTRIBUTING.md' --format-hint 'names are lowercase kebab-case'
+error: invalid branch name `feature/Add_Matcher`
+  unknown type `feature`
+    allowed types: feat, fix
+  invalid name `Add_Matcher`
+    expected: lowercase kebab-case starting with a letter, e.g. `add-matcher`
+hint: types are listed in CONTRIBUTING.md
+hint: names are lowercase kebab-case
+```
+
+- `--type-hint` and `--format-hint` are options of both `branch` and
+  `commit`, so a key of either at the top level of a
+  [config file](#config-file) is read by both. As the format of a branch name
+  and that of a commit header differ, a format hint is usually written in the
+  table of each command.
+- Only the hints of the broken rules are printed, in the order the report
+  names the rules, and a text given to several of them is printed once.
+- Nothing is printed on success, nor on an error that stops anything from
+  being linted, as a hint is about what to fix in what is linted.
+- Line breaks in the text are printed as they are, apart from one ending the
+  text, so a [config file](#config-file) can hold a hint as a multi-line
+  string:
+
+  ```toml
+  [branch]
+  protected = ["main"]
+  protected-hint = """
+  main is updated through pull requests:
+    git switch -c <type>/<name>
+  """
+  ```
+
+Braces are reserved for placeholders, none of which is supported yet: `{{`
+and `}}` print `{` and `}`, while any other brace fails with status `2`:
+
+```
+$ vcs-lint branch main --protected main --protected-hint 'git branch -m {new}'
+error: invalid value 'git branch -m {new}' for '--protected-hint <TEXT>': placeholder `{new}` is not supported; write `{{` and `}}` for braces
+```
+
+An empty text fails with status `2` as well.
+
 ## Exit status
 
 | Status | Meaning |

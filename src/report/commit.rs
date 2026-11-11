@@ -13,7 +13,7 @@ use std::{
 use derive_more::Display;
 
 use super::list::{ListResolveError, UnmatchableList};
-use crate::{cli::commit::CommitScopeClapMode, name_set::NameSet};
+use crate::{cli::commit::CommitScopeClapMode, lint::commit::CommitRule, name_set::NameSet};
 
 /// Why what to lint or the rules cannot be resolved from the command line.
 #[derive(Debug, Display)]
@@ -74,6 +74,29 @@ pub enum CommitLintError {
         spacing: Option<CommitSpacingViolation>,
         subject: Option<CommitSubjectViolation>,
     },
+}
+
+impl CommitLintError {
+    /// The rules the message breaks, in the order they are reported.
+    pub fn broken_rules(&self) -> Vec<CommitRule> {
+        match self {
+            Self::Empty | Self::Malformed { .. } => vec![CommitRule::Format],
+            Self::InvalidParts {
+                ty,
+                scope,
+                spacing,
+                subject,
+                ..
+            } => [
+                ty.as_ref().map(|_| CommitRule::Type),
+                scope.as_ref().map(|_| CommitRule::Scope),
+                (spacing.is_some() || subject.is_some()).then_some(CommitRule::Format),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        }
+    }
 }
 
 impl Display for CommitLintError {
@@ -139,3 +162,7 @@ pub struct CommitSpacingViolation;
 #[derive(Debug, PartialEq, Eq, Display)]
 #[display("  empty subject")]
 pub struct CommitSubjectViolation;
+
+#[cfg(test)]
+#[path = "commit_tests.rs"]
+mod tests;

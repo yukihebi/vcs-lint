@@ -220,6 +220,12 @@ fn prints_help() {
               - always: Allowed besides the given types
               - never:  Never allowed
 
+          --type-hint <TEXT>
+              Hint printed when the type is missing or not allowed
+
+          --format-hint <TEXT>
+              Hint printed when the name after the type is invalid
+
           --protected <BRANCH>
               Branch that fails whatever its format, given as repeated flags or comma-separated values
 
@@ -229,6 +235,9 @@ fn prints_help() {
           --protected-exclude <BRANCH>
               Branch excluded from the protected branches, given as repeated flags or comma-separated values
 
+          --protected-hint <TEXT>
+              Hint printed when the branch is protected
+
           --detached <RULE>
               Whether a detached HEAD passes
               [default: allow]
@@ -236,6 +245,9 @@ fn prints_help() {
               Possible values:
               - allow: A detached HEAD passes
               - deny:  A detached HEAD fails
+
+          --detached-hint <TEXT>
+              Hint printed when a detached HEAD fails
 
           --severity <LEVEL>
               How violations are reported
