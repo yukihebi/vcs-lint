@@ -19,9 +19,10 @@ fn prints_help() {
     Usage: vcs-lint <COMMAND>
 
     Commands:
-      branch  Lint a branch name of the form `<type>/<name>`
-      commit  Lint the header of a commit message file
-      help    Print this message or the help of the given subcommand(s)
+      branch   Lint a branch name of the form `<type>/<name>`
+      commit   Lint the header of a commit message file
+      history  Lint whether the history of a revision contains the tip of its base branch
+      help     Print this message or the help of the given subcommand(s)
 
     Options:
       -h, --help     Print help
@@ -107,9 +108,10 @@ fn rejects_missing_subcommand() {
     Usage: vcs-lint <COMMAND>
 
     Commands:
-      branch  Lint a branch name of the form `<type>/<name>`
-      commit  Lint the header of a commit message file
-      help    Print this message or the help of the given subcommand(s)
+      branch   Lint a branch name of the form `<type>/<name>`
+      commit   Lint the header of a commit message file
+      history  Lint whether the history of a revision contains the tip of its base branch
+      help     Print this message or the help of the given subcommand(s)
 
     Options:
       -h, --help     Print help

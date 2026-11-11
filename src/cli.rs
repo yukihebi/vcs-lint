@@ -12,6 +12,7 @@
 
 pub mod branch;
 pub mod commit;
+pub mod history;
 
 use std::{
     error::Error,
@@ -30,6 +31,7 @@ use crate::{
 };
 use branch::BranchClapArgs;
 use commit::CommitClapArgs;
+use history::HistoryClapArgs;
 
 /// A command line that follows the syntax of the commands.
 #[derive(Debug)]
@@ -109,6 +111,9 @@ pub enum ClapCommand {
     Branch(BranchClapArgs),
     /// Lint the header of a commit message file
     Commit(CommitClapArgs),
+    /// Lint whether the history of a revision contains the tip of its base
+    /// branch
+    History(HistoryClapArgs),
 }
 
 impl ClapCommand {
@@ -116,6 +121,7 @@ impl ClapCommand {
         match self {
             Self::Branch(_) => CommandName::Branch,
             Self::Commit(_) => CommandName::Commit,
+            Self::History(_) => CommandName::History,
         }
     }
 
@@ -124,6 +130,7 @@ impl ClapCommand {
         let severity = match self {
             Self::Branch(args) => &args.severity,
             Self::Commit(args) => &args.severity,
+            Self::History(args) => &args.severity,
         };
         severity.level.unwrap_or_default()
     }
@@ -133,6 +140,7 @@ impl ClapCommand {
         let config = match self {
             Self::Branch(args) => &args.config,
             Self::Commit(args) => &args.config,
+            Self::History(args) => &args.config,
         };
         config.path.as_deref()
     }
@@ -143,10 +151,11 @@ impl ClapCommand {
 pub enum CommandName {
     Branch,
     Commit,
+    History,
 }
 
 impl CommandName {
-    pub const ALL: [Self; 2] = [Self::Branch, Self::Commit];
+    pub const ALL: [Self; 3] = [Self::Branch, Self::Commit, Self::History];
 
     /// The command named `name`, if any.
     pub fn from_name(name: &str) -> Option<Self> {
@@ -159,6 +168,7 @@ impl CommandName {
         match self {
             Self::Branch => "branch",
             Self::Commit => "commit",
+            Self::History => "history",
         }
     }
 
@@ -251,6 +261,25 @@ pub enum SeverityClapLevel {
     Error,
     /// Violations are reported as warnings and do not fail the run
     Warning,
+}
+
+#[derive(Debug, Args)]
+struct NetworkClapArgs {
+    #[arg(
+        long = "network",
+        value_name = "ACCESS",
+        help = "Whether vcs-lint may access the network\n[default: allow]"
+    )]
+    access: Option<NetworkClapAccess>,
+}
+
+/// Whether vcs-lint may access the network, as written.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum NetworkClapAccess {
+    /// vcs-lint may access the network
+    Allow,
+    /// vcs-lint never accesses the network
+    Deny,
 }
 
 #[derive(Debug, Args)]

@@ -13,6 +13,8 @@ A Simple, Fast Linter for Commit Messages and Branch Names in Version Control Sy
   The current branch is read from Git when no name is given.
 - Lints commit message headers of the form `<type>: <subject>`,
   or `<type>(<scope>): <subject>`.
+- Lints whether a branch is up to date with its base branch,
+  read from the remote or the local repository.
 - Reports every violation at once.
 - Failure can be detected by the exit status.
 
@@ -32,6 +34,7 @@ vcs-lint branch feat/add-matcher --protected main
 vcs-lint commit .git/COMMIT_EDITMSG
 vcs-lint commit .git/COMMIT_EDITMSG --scope root --scope-dir crates
 vcs-lint commit .git/COMMIT_EDITMSG --config vcs-lint.toml
+vcs-lint history --base main
 ```
 
 ```
@@ -47,6 +50,7 @@ See `vcs-lint --help` for options, and the documents below for the detailed rule
 - [Command line](docs/cli.md): commands, list options, config file, environment variables, output and exit status.
 - [`vcs-lint branch`](docs/branch.md)
 - [`vcs-lint commit`](docs/commit.md)
+- [`vcs-lint history`](docs/history.md)
 
 ## License
 

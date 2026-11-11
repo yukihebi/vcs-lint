@@ -32,7 +32,7 @@ impl GitCommand {
 
     /// The exit status of a quiet query, such as `git symbolic-ref -q`, when
     /// what it asks for is absent.
-    const ABSENT: i32 = 1;
+    pub const ABSENT: i32 = 1;
 
     /// A command running `program` with `args`.
     pub fn new(program: &OsStr, args: &[impl AsRef<OsStr>]) -> Self {
@@ -59,15 +59,16 @@ impl GitCommand {
         }
     }
 
-    /// Runs a quiet query, which exits with [`GitCommand::ABSENT`] and prints
-    /// nothing when what it asks for is absent, giving `None`, and otherwise
-    /// reads its standard output with `parse`, which gives `None` for output
-    /// not in the expected form.
+    /// Runs a quiet query, which exits with `absent`, such as
+    /// [`GitCommand::ABSENT`], and prints nothing when what it asks for is
+    /// absent, giving `None`, and otherwise reads its standard output with
+    /// `parse`, which gives `None` for output not in the expected form.
     ///
     /// The same status with output is a failure, as from a `git` that is not
     /// git itself, such as a shim that cannot find git.
     pub fn read_optional<T>(
         self,
+        absent: i32,
         parse: impl FnOnce(&[u8]) -> Option<T>,
     ) -> Result<Option<T>, GitError> {
         let (written, output) = self.output()?;
@@ -75,7 +76,11 @@ impl GitCommand {
             Some(0) => parse(&output.stdout)
                 .map(Some)
                 .ok_or_else(|| GitError::unexpected_output(written, &output)),
-            Some(Self::ABSENT) if output.stdout.is_empty() && output.stderr.is_empty() => Ok(None),
+            Some(code)
+                if code == absent && output.stdout.is_empty() && output.stderr.is_empty() =>
+            {
+                Ok(None)
+            }
             _ => Err(GitError::failed(written, &output)),
         }
     }

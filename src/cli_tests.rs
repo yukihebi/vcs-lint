@@ -6,12 +6,16 @@ use std::{
 use clap::error::ErrorKind;
 
 use super::{
-    ClapCommand, CommandName, Parsed, SeverityClapLevel, TypeDefaultsClapMode,
+    ClapCommand, CommandName, NetworkClapAccess, Parsed, SeverityClapLevel, TypeDefaultsClapMode,
     branch::BranchDetachedClapRule, commit::CommitScopeClapMode,
+    history::HistoryBaseFromClapSource,
 };
 use crate::{
     report::config_file::ValueRejection,
-    resolve::{branch::BranchRawConfig, commit::CommitRawConfig, list::ListRawValues},
+    resolve::{
+        branch::BranchRawConfig, commit::CommitRawConfig, history::HistoryRawConfig,
+        list::ListRawValues,
+    },
 };
 
 fn os_strings(args: &[&str]) -> Vec<OsString> {
@@ -46,6 +50,13 @@ fn branch(args: &[&str]) -> BranchRawConfig {
 fn commit(args: &[&str]) -> CommitRawConfig {
     let ClapCommand::Commit(args) = command(&[&["commit"], args].concat()) else {
         panic!("not a commit command");
+    };
+    args.into_raw_config()
+}
+
+fn history(args: &[&str]) -> HistoryRawConfig {
+    let ClapCommand::History(args) = command(&[&["history"], args].concat()) else {
+        panic!("not a history command");
     };
     args.into_raw_config()
 }
@@ -301,6 +312,56 @@ fn commit_options_are_none_when_omitted() {
 }
 
 #[test]
+fn history_takes_arguments_and_options() {
+    assert_eq!(
+        history(&[
+            "feat/x",
+            "--base",
+            "main",
+            "--base-from",
+            "remote",
+            "--remote",
+            "upstream",
+            "--network",
+            "deny",
+        ]),
+        HistoryRawConfig {
+            rev: Some("feat/x".to_owned()),
+            base: Some("main".to_owned()),
+            base_from: Some(HistoryBaseFromClapSource::Remote),
+            remote: Some("upstream".to_owned()),
+            network: Some(NetworkClapAccess::Deny),
+        }
+    );
+}
+
+#[test]
+fn history_options_are_none_when_omitted() {
+    assert_eq!(
+        history(&[]),
+        HistoryRawConfig {
+            rev: None,
+            base: None,
+            base_from: None,
+            remote: None,
+            network: None,
+        }
+    );
+}
+
+#[test]
+fn history_accepts_each_source_and_network_access() {
+    assert_eq!(
+        history(&["--base-from", "local"]).base_from,
+        Some(HistoryBaseFromClapSource::Local)
+    );
+    assert_eq!(
+        history(&["--network", "allow"]).network,
+        Some(NetworkClapAccess::Allow)
+    );
+}
+
+#[test]
 fn type_defaults_accepts_each_mode_in_both_commands() {
     for (written, mode) in [
         ("auto", TypeDefaultsClapMode::Auto),
@@ -344,6 +405,7 @@ fn help_and_version_are_info() {
         &["help"],
         &["branch", "--help"],
         &["commit", "-h"],
+        &["history", "--help"],
     ] {
         assert!(matches!(parse(args), Ok(Parsed::Info(_))), "{args:?}");
     }
@@ -376,6 +438,12 @@ fn rejects_command_line_outside_syntax() {
             &["branch", "feat/x", "--type-defaults", "on"],
             ErrorKind::InvalidValue,
         ),
+        (&["history", "--base", ""], ErrorKind::InvalidValue),
+        (&["history", "--remote", ""], ErrorKind::InvalidValue),
+        (&["history", "--base-from", "both"], ErrorKind::InvalidValue),
+        (&["history", "--network", "Deny"], ErrorKind::InvalidValue),
+        (&["history", "HEAD", "main"], ErrorKind::UnknownArgument),
+        (&["history", "--type", "feat"], ErrorKind::UnknownArgument),
     ] {
         let Err(err) = parse(args) else {
             panic!("{args:?} parsed");
@@ -385,7 +453,7 @@ fn rejects_command_line_outside_syntax() {
 }
 
 #[test]
-fn severity_accepts_each_level_in_both_commands() {
+fn severity_accepts_each_level_in_every_command() {
     for (written, level) in [
         ("error", SeverityClapLevel::Error),
         ("warning", SeverityClapLevel::Warning),
@@ -400,6 +468,11 @@ fn severity_accepts_each_level_in_both_commands() {
             level,
             "{written}"
         );
+        assert_eq!(
+            command(&["history", "--severity", written]).severity(),
+            level,
+            "{written}"
+        );
     }
 }
 
@@ -410,13 +483,15 @@ fn severity_is_error_when_omitted() {
         command(&["commit", "missing"]).severity(),
         SeverityClapLevel::Error
     );
+    assert_eq!(command(&["history"]).severity(), SeverityClapLevel::Error);
 }
 
 #[test]
-fn config_is_given_to_both_commands() {
+fn config_is_given_to_every_command() {
     for args in [
         &["branch", "--config", "vcs-lint.toml"][..],
         &["commit", "missing", "--config=vcs-lint.toml"],
+        &["history", "--config", "vcs-lint.toml"],
     ] {
         assert_eq!(
             command(args).config(),
@@ -430,6 +505,7 @@ fn config_is_given_to_both_commands() {
 fn config_is_none_when_omitted() {
     assert_eq!(command(&["branch"]).config(), None);
     assert_eq!(command(&["commit", "missing"]).config(), None);
+    assert_eq!(command(&["history"]).config(), None);
 }
 
 #[test]
@@ -444,6 +520,7 @@ fn config_rejects_empty_path() {
 fn command_is_named_as_written() {
     assert_eq!(command(&["branch"]).name(), CommandName::Branch);
     assert_eq!(command(&["commit", "missing"]).name(), CommandName::Commit);
+    assert_eq!(command(&["history"]).name(), CommandName::History);
     for name in CommandName::ALL {
         assert_eq!(CommandName::from_name(name.as_str()), Some(name));
     }
@@ -491,6 +568,17 @@ fn command_options_are_those_with_long_names() {
             ("scope-dir", true),
             ("scope-exclude", true),
             ("scope-mode", false),
+            ("severity", false),
+            ("config", false),
+        ])
+    );
+    assert_eq!(
+        options(CommandName::History),
+        expected(&[
+            ("base", false),
+            ("base-from", false),
+            ("remote", false),
+            ("network", false),
             ("severity", false),
             ("config", false),
         ])
