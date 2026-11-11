@@ -14,20 +14,31 @@ pub mod branch;
 pub mod commit;
 
 use std::{
+    error::Error,
     ffi::OsString,
     path::{Path, PathBuf},
 };
 
-use clap::{ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{
+    ArgAction, ArgMatches, Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum,
+    parser::ValueSource,
+};
 
-use crate::resolve::{DEFAULT_TYPES, list::ListRawValues};
+use crate::{
+    report::config_file::ValueRejection,
+    resolve::{DEFAULT_TYPES, list::ListRawValues},
+};
 use branch::BranchClapArgs;
 use commit::CommitClapArgs;
 
 /// A command line that follows the syntax of the commands.
 #[derive(Debug)]
 pub enum Parsed {
-    Command(Box<ClapCommand>),
+    Command {
+        command: Box<ClapCommand>,
+        /// The long names of the options written on the command line.
+        written: Vec<String>,
+    },
     /// Help or the version, which clap gives as an error to be printed.
     Info(clap::Error),
 }
@@ -36,11 +47,18 @@ impl Parsed {
     /// Parses `args`, which exclude the program name, failing on a syntax
     /// error.
     pub fn parse(args: Vec<OsString>) -> Result<Self, clap::Error> {
-        match Cli::try_parse_from(args) {
-            Ok(cli) => Ok(Self::Command(Box::new(cli.command))),
-            Err(err) if err.use_stderr() => Err(err),
-            Err(info) => Ok(Self::Info(info)),
-        }
+        let mut cli = Cli::command();
+        let mut matches = match cli.try_get_matches_from_mut(args) {
+            Ok(matches) => matches,
+            Err(err) if err.use_stderr() => return Err(err),
+            Err(info) => return Ok(Self::Info(info)),
+        };
+        let written = Self::written(&cli, &matches);
+        let parsed = Cli::from_arg_matches_mut(&mut matches).map_err(|err| err.format(&mut cli))?;
+        Ok(Self::Command {
+            command: Box::new(parsed.command),
+            written,
+        })
     }
 
     /// Parses `args` as [`Parsed::parse`] does, with `leading` given right
@@ -53,6 +71,22 @@ impl Parsed {
         let mut args = args.into_iter();
         let name = args.next();
         Self::parse(name.into_iter().chain(leading).chain(args).collect())
+    }
+
+    /// The long names of the options that `matches`, matched against `cli`,
+    /// found written for its command.
+    fn written(cli: &clap::Command, matches: &ArgMatches) -> Vec<String> {
+        let Some((name, matches)) = matches.subcommand() else {
+            return Vec::new();
+        };
+        cli.find_subcommand(name)
+            .into_iter()
+            .flat_map(clap::Command::get_arguments)
+            .filter(|arg| {
+                matches.value_source(arg.get_id().as_str()) == Some(ValueSource::CommandLine)
+            })
+            .filter_map(|arg| arg.get_long().map(String::from))
+            .collect()
     }
 }
 
@@ -96,7 +130,7 @@ impl ClapCommand {
 }
 
 /// A command, named as on the command line.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandName {
     Branch,
     Commit,
@@ -119,31 +153,75 @@ impl CommandName {
         }
     }
 
-    /// The options of the command that have a long name, `--help` aside.
-    pub fn options(self) -> Vec<CommandOption> {
+    /// The syntax of the command.
+    pub fn syntax(self) -> CommandSyntax {
         let cli = Cli::command();
         let command = cli
             .find_subcommand(self.as_str())
             .expect("every command is a subcommand");
-        command
-            .get_arguments()
-            .filter_map(|arg| {
-                Some(CommandOption {
-                    name: arg.get_long()?.to_owned(),
-                    is_list: matches!(arg.get_action(), ArgAction::Append),
-                })
-            })
-            .collect()
+        CommandSyntax(command.clone())
     }
 }
 
-/// An option of a command, by its long name.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CommandOption {
-    pub name: String,
+/// The syntax of a command, against which values of its options are checked.
+#[derive(Debug)]
+pub struct CommandSyntax(clap::Command);
+
+impl CommandSyntax {
+    /// The options of the command that have a long name, `--help` aside.
+    pub fn options(&self) -> impl Iterator<Item = CommandOption<'_>> {
+        self.0.get_arguments().filter_map(|arg| {
+            Some(CommandOption {
+                arg,
+                name: arg.get_long()?,
+            })
+        })
+    }
+
+    /// The option whose long name is `name`, if any.
+    pub fn option(&self, name: &str) -> Option<CommandOption<'_>> {
+        self.options().find(|option| option.name == name)
+    }
+}
+
+/// An option of a command that has a long name.
+#[derive(Debug, Clone, Copy)]
+pub struct CommandOption<'a> {
+    arg: &'a clap::Arg,
+    pub name: &'a str,
+}
+
+impl CommandOption<'_> {
     /// Whether each flag of the option adds to its values, rather than the
     /// option being given once.
-    pub is_list: bool,
+    pub fn is_list(&self) -> bool {
+        matches!(self.arg.get_action(), ArgAction::Append)
+    }
+
+    /// Checks `value` as the command line checks the value of one flag of the
+    /// option, parsing the flag on a command that has the option alone.
+    pub fn check(&self, value: &str) -> Result<(), ValueRejection> {
+        let command = clap::Command::new("vcs-lint")
+            .no_binary_name(true)
+            .arg(self.arg.clone());
+        let Err(err) = command.try_get_matches_from([format!("--{}={value}", self.name)]) else {
+            return Ok(());
+        };
+        let possible: Vec<String> = self
+            .arg
+            .get_possible_values()
+            .iter()
+            .map(|value| value.get_name().to_owned())
+            .collect();
+        if possible.is_empty() {
+            let reason = err
+                .source()
+                .map_or_else(|| err.kind().to_string(), ToString::to_string);
+            Err(ValueRejection::Invalid { reason })
+        } else {
+            Err(ValueRejection::NotPossible { possible })
+        }
+    }
 }
 
 #[derive(Debug, Args)]

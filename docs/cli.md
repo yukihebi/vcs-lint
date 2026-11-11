@@ -206,32 +206,39 @@ line adds to the file:
 $ vcs-lint commit COMMIT_EDITMSG --config vcs-lint.toml --scope cli   # root and cli
 ```
 
-An option other than a list option cannot be given twice, whether in the file
-and on the command line or both at the top level and in a table, and a value
-the command line rejects is rejected in the file as well. Both make the command
-line syntactically invalid, which fails with status `3`:
+An option other than a list option can be given once, so giving it both in the
+file and on the command line fails with status `2`, for every such option at
+once:
 
 ```
 $ vcs-lint commit COMMIT_EDITMSG --config vcs-lint.toml --scope-mode optional
-error: the argument '--scope-mode <MODE>' cannot be used multiple times
+error: config file `vcs-lint.toml` and the command line both give options that can be given once
+  `commit.scope-mode` and `--scope-mode`
 ```
 
 ### Invalid files
 
 A file that does not exist, cannot be read or is not TOML fails with status
-`2`, as does a file holding an invalid key: a key at the top level that no
-command has, a key in a table that its command does not have, or a value that
-is not of the type of its option. Every key is checked whichever command runs,
-so a file is valid for both commands or for neither, and every invalid key is
-reported at once:
+`2`, as does a file holding an invalid key:
+
+- A key at the top level that no command has, or a key in a table that its
+  command does not have.
+- A value that is not of the type of its option, or a string the command line
+  rejects as the value of the option, such as `scope = [","]` or
+  `scope-mode = "bogus"`.
+- A key in a table giving an option other than a list option that the command
+  reads at the top level as well.
+
+Every key is checked whichever command runs, so a file is valid for both
+commands or for neither, and every invalid key is reported at once:
 
 ```
 $ vcs-lint commit COMMIT_EDITMSG --config vcs-lint.toml
 error: invalid config file `vcs-lint.toml`
   unknown key `branch.scope`
-    `vcs-lint branch` has no `--scope`
-  invalid value of `commit.scope-mode`
-    expected a string
+    `vcs-lint branch` has no option of this name
+  invalid value "bogus" of `commit.scope-mode`
+    expected `auto`, `required`, `optional` or `forbidden`
 ```
 
 The file is read once the rest of the command line is found valid, so help,
@@ -297,5 +304,5 @@ success.
 | `0` | No violation, or help or the version was printed. |
 | `1` | A violation was found. |
 | `2` | A runtime error occurred, such as a [config file](#config-file) that cannot be read, so nothing was linted. |
-| `3` | The command line, including the options read from the [config file](#config-file), is syntactically invalid. |
+| `3` | The command line is syntactically invalid. |
 | `4` | The running vcs-lint is older than the [required version](#vcs_lint_required_version), or the required version is invalid, so nothing was run. |

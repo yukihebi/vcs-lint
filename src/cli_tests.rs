@@ -6,10 +6,13 @@ use std::{
 use clap::error::ErrorKind;
 
 use super::{
-    ClapCommand, CommandName, CommandOption, Parsed, TypeDefaultsClapMode,
-    branch::BranchDetachedClapRule, commit::CommitScopeClapMode,
+    ClapCommand, CommandName, Parsed, TypeDefaultsClapMode, branch::BranchDetachedClapRule,
+    commit::CommitScopeClapMode,
 };
-use crate::resolve::{branch::BranchRawConfig, commit::CommitRawConfig, list::ListRawValues};
+use crate::{
+    report::config_file::ValueRejection,
+    resolve::{branch::BranchRawConfig, commit::CommitRawConfig, list::ListRawValues},
+};
 
 fn os_strings(args: &[&str]) -> Vec<OsString> {
     args.iter().map(OsString::from).collect()
@@ -20,10 +23,17 @@ fn parse(args: &[&str]) -> Result<Parsed, clap::Error> {
 }
 
 fn command(args: &[&str]) -> ClapCommand {
-    let Ok(Parsed::Command(command)) = parse(args) else {
+    let Ok(Parsed::Command { command, .. }) = parse(args) else {
         panic!("{args:?} is not a command");
     };
     *command
+}
+
+fn written(args: &[&str]) -> Vec<String> {
+    let Ok(Parsed::Command { written, .. }) = parse(args) else {
+        panic!("{args:?} is not a command");
+    };
+    written
 }
 
 fn branch(args: &[&str]) -> BranchRawConfig {
@@ -414,47 +424,127 @@ fn command_is_named_as_written() {
 
 #[test]
 fn command_options_are_those_with_long_names() {
-    let list = |name: &str| CommandOption {
-        name: name.to_owned(),
-        is_list: true,
+    let options = |command: CommandName| -> Vec<(String, bool)> {
+        let syntax = command.syntax();
+        syntax
+            .options()
+            .map(|option| (option.name.to_owned(), option.is_list()))
+            .collect()
     };
-    let single = |name: &str| CommandOption {
-        name: name.to_owned(),
-        is_list: false,
+    let expected = |names: &[(&str, bool)]| -> Vec<(String, bool)> {
+        names
+            .iter()
+            .map(|&(name, is_list)| (name.to_owned(), is_list))
+            .collect()
     };
     assert_eq!(
-        CommandName::Branch.options(),
-        [
-            list("type"),
-            list("type-dir"),
-            list("type-exclude"),
-            single("type-defaults"),
-            list("protected"),
-            list("protected-dir"),
-            list("protected-exclude"),
-            single("detached"),
-            single("config"),
-        ]
+        options(CommandName::Branch),
+        expected(&[
+            ("type", true),
+            ("type-dir", true),
+            ("type-exclude", true),
+            ("type-defaults", false),
+            ("protected", true),
+            ("protected-dir", true),
+            ("protected-exclude", true),
+            ("detached", false),
+            ("config", false),
+        ])
     );
     assert_eq!(
-        CommandName::Commit.options(),
-        [
-            list("type"),
-            list("type-dir"),
-            list("type-exclude"),
-            single("type-defaults"),
-            list("scope"),
-            list("scope-dir"),
-            list("scope-exclude"),
-            single("scope-mode"),
-            single("config"),
-        ]
+        options(CommandName::Commit),
+        expected(&[
+            ("type", true),
+            ("type-dir", true),
+            ("type-exclude", true),
+            ("type-defaults", false),
+            ("scope", true),
+            ("scope-dir", true),
+            ("scope-exclude", true),
+            ("scope-mode", false),
+            ("config", false),
+        ])
     );
 }
 
 #[test]
+fn command_option_is_found_by_long_name() {
+    let syntax = CommandName::Commit.syntax();
+    assert_eq!(
+        syntax.option("scope-mode").map(|option| option.name),
+        Some("scope-mode")
+    );
+    for name in ["scope_mode", "protected", "file", "help"] {
+        assert!(syntax.option(name).is_none(), "{name}");
+    }
+}
+
+#[test]
+fn option_accepts_values_command_line_accepts() {
+    let syntax = CommandName::Commit.syntax();
+    for (name, value) in [
+        ("scope", "core"),
+        ("scope", " core,,cli "),
+        ("scope", "-x"),
+        ("scope-dir", "crates"),
+        ("scope-mode", "optional"),
+        ("type-defaults", "never"),
+    ] {
+        let option = syntax.option(name).unwrap();
+        assert_eq!(option.check(value), Ok(()), "{name} {value:?}");
+    }
+}
+
+#[test]
+fn option_rejects_value_outside_its_possible_values() {
+    let syntax = CommandName::Branch.syntax();
+    for value in ["Deny", "allow,deny", ""] {
+        assert_eq!(
+            syntax.option("detached").unwrap().check(value),
+            Err(ValueRejection::NotPossible {
+                possible: vec!["allow".to_owned(), "deny".to_owned()]
+            }),
+            "{value:?}"
+        );
+    }
+}
+
+#[test]
+fn option_rejects_value_its_parser_rejects_with_reason() {
+    let syntax = CommandName::Branch.syntax();
+    for value in ["", " , "] {
+        assert_eq!(
+            syntax.option("protected").unwrap().check(value),
+            Err(ValueRejection::Invalid {
+                reason: "every value is empty".to_owned()
+            }),
+            "{value:?}"
+        );
+    }
+}
+
+#[test]
+fn written_options_are_those_given_on_command_line() {
+    assert_eq!(
+        written(&[
+            "commit",
+            "missing",
+            "--scope",
+            "core",
+            "--scope=cli",
+            "--scope-mode",
+            "optional",
+            "--config",
+            "vcs-lint.toml"
+        ]),
+        ["scope", "scope-mode", "config"]
+    );
+    assert_eq!(written(&["branch", "feat/x"]), [] as [&str; 0]);
+}
+
+#[test]
 fn leading_flags_are_given_right_after_command_name() {
-    let Ok(Parsed::Command(command)) = Parsed::parse_with_leading(
+    let Ok(Parsed::Command { command, written }) = Parsed::parse_with_leading(
         os_strings(&["commit", "missing", "--scope", "cli"]),
         os_strings(&["--scope=root", "--scope-mode=optional"]),
     ) else {
@@ -464,6 +554,7 @@ fn leading_flags_are_given_right_after_command_name() {
         panic!("not a commit command");
     };
     let config = args.into_raw_config();
+    assert_eq!(written, ["scope", "scope-mode"]);
     assert_eq!(config.scopes.given, values(&["root", "cli"]));
     assert_eq!(config.scope_mode, Some(CommitScopeClapMode::Optional));
 }
