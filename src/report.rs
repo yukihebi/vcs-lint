@@ -26,8 +26,8 @@ pub enum RunStatus {
     /// The running vcs-lint does not meet the required version, so the
     /// command line is not read. Exits with `4`.
     RequiredVersionError(RequiredVersionError),
-    /// The command line, with the options read from the config file, does not
-    /// follow the syntax of the commands. Exits with `3`.
+    /// The command line does not follow the syntax of the commands. Exits
+    /// with `3`.
     SyntaxError(clap::Error),
     /// The config file cannot be read, so nothing is linted. Exits with `2`.
     ConfigFileError(ConfigFileError),

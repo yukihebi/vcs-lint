@@ -36,22 +36,22 @@ pub fn run(args: Vec<OsString>, var: impl Fn(&str) -> Option<OsString>) -> RunSt
         return RunStatus::RequiredVersionError(err);
     }
     let parsed = Parsed::parse(args.clone());
-    let Ok(Parsed::Command(command)) = &parsed else {
+    let Ok(Parsed::Command { command, written }) = &parsed else {
         return run_parsed(parsed);
     };
-    match ConfigFile::path(command.config(), &env) {
-        None => run_parsed(parsed),
-        Some(path) => match ConfigFile::read(path) {
-            Ok(file) => run_parsed(Parsed::parse_with_leading(args, file.flags(command.name()))),
-            Err(err) => RunStatus::ConfigFileError(err),
-        },
+    let Some(path) = ConfigFile::path(command.config(), &env) else {
+        return run_parsed(parsed);
+    };
+    match ConfigFile::read(path).and_then(|file| file.flags(command.name(), written)) {
+        Ok(flags) => run_parsed(Parsed::parse_with_leading(args, flags)),
+        Err(err) => RunStatus::ConfigFileError(err),
     }
 }
 
 /// Runs what the command line was parsed into.
 fn run_parsed(parsed: Result<Parsed, clap::Error>) -> RunStatus {
     match parsed {
-        Ok(Parsed::Command(command)) => run_command(*command),
+        Ok(Parsed::Command { command, .. }) => run_command(*command),
         Ok(Parsed::Info(info)) => RunStatus::Info(info),
         Err(err) => RunStatus::SyntaxError(err),
     }

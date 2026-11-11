@@ -6,18 +6,25 @@ use super::{ConfigFile, ConfigReader};
 use crate::{
     cli::CommandName,
     env::Env,
-    report::config_file::{ConfigFileError, ConfigKey, ConfigKeyError, ConfigKeyErrorKind},
+    report::config_file::{
+        ConfigFileError, ConfigKey, ConfigKeyError, ConfigKeyErrorKind, ValueRejection,
+    },
 };
 
 fn read(text: &str) -> Result<ConfigFile, Vec<ConfigKeyError>> {
-    ConfigReader::new().read(text.parse().unwrap())
+    let commands = ConfigReader::new().read(text.parse().unwrap())?;
+    Ok(ConfigFile {
+        path: "vcs-lint.toml".into(),
+        commands,
+    })
 }
 
-/// The flags each command reads from a valid file holding `text`.
+/// The flags each command reads from a valid file holding `text`, with no
+/// option written on the command line.
 fn flags(text: &str) -> [(CommandName, Vec<String>); 2] {
     let file = read(text).unwrap();
     CommandName::ALL.map(|command| {
-        let flags = file.flags(command).into_iter();
+        let flags = file.flags(command, &[]).unwrap().into_iter();
         (
             command,
             flags.map(|flag| flag.into_string().unwrap()).collect(),
@@ -93,10 +100,31 @@ fn top_level_keys_are_read_before_table_keys_written_before_them() {
 }
 
 #[test]
-fn key_at_both_levels_is_read_twice() {
+fn list_key_at_both_levels_is_read_twice() {
     assert_eq!(
-        flags("detached = \"deny\"\n[branch]\ndetached = \"allow\""),
-        expected(&["--detached=deny", "--detached=allow"], &[])
+        flags("type = [\"feat\"]\n[branch]\ntype = [\"fix\"]"),
+        expected(&["--type=feat", "--type=fix"], &["--type=feat"])
+    );
+}
+
+#[test]
+fn rejects_single_key_at_both_levels_in_table_of_each_command_reading_it() {
+    assert_eq!(
+        read("type-defaults = \"never\"\ndetached = \"deny\"\n[branch]\ndetached = \"allow\"\ntype-defaults = \"never\"\n[commit]\ntype-defaults = \"always\"")
+            .unwrap_err(),
+        [
+            in_table(CommandName::Branch, "detached", ConfigKeyErrorKind::Repeated),
+            in_table(CommandName::Branch, "type-defaults", ConfigKeyErrorKind::Repeated),
+            in_table(CommandName::Commit, "type-defaults", ConfigKeyErrorKind::Repeated),
+        ]
+    );
+}
+
+#[test]
+fn single_key_at_top_level_is_not_repeated_by_table_of_command_without_it() {
+    assert_eq!(
+        flags("scope-mode = \"optional\"\n[branch]\ndetached = \"deny\""),
+        expected(&["--detached=deny"], &["--scope-mode=optional"])
     );
 }
 
@@ -118,16 +146,16 @@ fn keys_are_read_in_order_written() {
 #[test]
 fn list_option_gives_one_flag_per_string() {
     assert_eq!(
-        flags("[commit]\nscope = [\"root\", \"cli,core\", \"\"]\nscope-exclude = []"),
-        expected(&[], &["--scope=root", "--scope=cli,core", "--scope="])
+        flags("[commit]\nscope = [\"root\", \" cli,,core\"]\nscope-exclude = []"),
+        expected(&[], &["--scope=root", "--scope= cli,,core"])
     );
 }
 
 #[test]
 fn values_are_bound_to_their_flags() {
     assert_eq!(
-        flags("[commit]\nscope = [\"-x\", \"--scope\"]\nscope-mode = \"-h\""),
-        expected(&[], &["--scope=-x", "--scope=--scope", "--scope-mode=-h"])
+        flags("[commit]\nscope = [\"-x\", \"--scope\"]\nscope-dir = [\"-h\"]"),
+        expected(&[], &["--scope=-x", "--scope=--scope", "--scope-dir=-h"])
     );
 }
 
@@ -215,6 +243,34 @@ fn rejects_single_option_other_than_string() {
 }
 
 #[test]
+fn rejects_each_value_command_line_rejects() {
+    let invalid = |value: &str, rejection: ValueRejection| ConfigKeyErrorKind::InvalidValue {
+        value: value.to_owned(),
+        rejection,
+    };
+    let empty = || ValueRejection::Invalid {
+        reason: "every value is empty".to_owned(),
+    };
+    assert_eq!(
+        read("scope = [\"\", \"core\", \" , \"]\n[branch]\ndetached = \"Deny\"").unwrap_err(),
+        [
+            top("scope", invalid("", empty())),
+            top("scope", invalid(" , ", empty())),
+            in_table(
+                CommandName::Branch,
+                "detached",
+                invalid(
+                    "Deny",
+                    ValueRejection::NotPossible {
+                        possible: vec!["allow".to_owned(), "deny".to_owned()]
+                    }
+                )
+            ),
+        ]
+    );
+}
+
+#[test]
 fn rejects_file_invalid_for_one_command_with_every_invalid_key_in_order() {
     assert_eq!(
         read("type = \"feat\"\nscope = [\"core\"]\n[branch]\nscope-mode = \"required\"\n[commit]\nscope-mode = 1")
@@ -224,6 +280,42 @@ fn rejects_file_invalid_for_one_command_with_every_invalid_key_in_order() {
             in_table(CommandName::Branch, "scope-mode", ConfigKeyErrorKind::Unknown),
             in_table(CommandName::Commit, "scope-mode", ConfigKeyErrorKind::NotString),
         ]
+    );
+}
+
+#[test]
+fn flags_fail_on_single_options_written_on_command_line() {
+    let file =
+        read("type-defaults = \"never\"\ntype = [\"feat\"]\n[commit]\nscope-mode = \"required\"")
+            .unwrap();
+    let written = ["type", "type-defaults", "scope-mode"].map(String::from);
+    let Err(ConfigFileError::Written { path, keys }) = file.flags(CommandName::Commit, &written)
+    else {
+        panic!("read");
+    };
+    assert_eq!(path, Path::new("vcs-lint.toml"));
+    assert_eq!(
+        keys,
+        [
+            ConfigKey {
+                table: None,
+                name: "type-defaults".to_owned()
+            },
+            ConfigKey {
+                table: Some(CommandName::Commit),
+                name: "scope-mode".to_owned()
+            },
+        ]
+    );
+}
+
+#[test]
+fn flags_ignore_written_options_command_does_not_read() {
+    let file = read("[commit]\nscope-mode = \"required\"").unwrap();
+    let written = ["scope-mode".to_owned()];
+    assert_eq!(
+        file.flags(CommandName::Branch, &written).unwrap(),
+        [] as [OsString; 0]
     );
 }
 
@@ -255,7 +347,10 @@ fn reads_valid_file() {
     let path = dir.path().join("vcs-lint.toml");
     fs::write(&path, "[branch]\nprotected = [\"main\"]\n").unwrap();
     assert_eq!(
-        ConfigFile::read(&path).unwrap().flags(CommandName::Branch),
+        ConfigFile::read(&path)
+            .unwrap()
+            .flags(CommandName::Branch, &[])
+            .unwrap(),
         [OsString::from("--protected=main")]
     );
 }

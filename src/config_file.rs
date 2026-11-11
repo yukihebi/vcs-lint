@@ -3,14 +3,20 @@
 //! in the table named after a command by that command alone.
 //!
 //! A command reads the options of a file as flags given before its command
-//! line, so the rules of the command line apply to them as they are.
+//! line, so the rules of the command line apply to them as they are. They are
+//! checked against those rules before, so that what breaks them is reported by
+//! the keys of the file.
 
-use std::{collections::HashMap, ffi::OsString, fs, path::Path};
+use std::{
+    ffi::OsString,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use toml::{Table, Value};
 
 use crate::{
-    cli::{CommandName, CommandOption},
+    cli::{CommandName, CommandSyntax},
     env::Env,
     report::config_file::{ConfigFileError, ConfigKey, ConfigKeyError, ConfigKeyErrorKind},
 };
@@ -18,9 +24,11 @@ use crate::{
 /// The options a valid config file gives each command.
 #[derive(Debug)]
 pub struct ConfigFile {
-    /// The options of each command that the file gives any: those at the top
-    /// level that it has, then those in its table.
-    commands: HashMap<CommandName, Vec<ConfigOption>>,
+    /// The file as given.
+    path: PathBuf,
+    /// The options each command reads: those at the top level that it has,
+    /// then those in its table.
+    commands: Vec<(CommandName, Vec<ConfigOption>)>,
 }
 
 impl ConfigFile {
@@ -41,37 +49,56 @@ impl ConfigFile {
     /// Reads the file at `path`, failing unless every key of it is valid for
     /// every command.
     pub fn read(path: &Path) -> Result<Self, ConfigFileError> {
-        let text = fs::read_to_string(path).map_err(|source| ConfigFileError::Unreadable {
-            path: path.to_owned(),
-            source,
-        })?;
-        let table: Table = text.parse().map_err(|source| ConfigFileError::Syntax {
-            path: path.to_owned(),
-            source,
-        })?;
-        ConfigReader::new()
-            .read(table)
-            .map_err(|keys| ConfigFileError::Keys {
-                path: path.to_owned(),
-                keys,
-            })
+        let path = path.to_owned();
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(source) => return Err(ConfigFileError::Unreadable { path, source }),
+        };
+        let table: Table = match text.parse() {
+            Ok(table) => table,
+            Err(source) => return Err(ConfigFileError::Syntax { path, source }),
+        };
+        match ConfigReader::new().read(table) {
+            Ok(commands) => Ok(Self { path, commands }),
+            Err(keys) => Err(ConfigFileError::Keys { path, keys }),
+        }
     }
 
-    /// The flags `command` reads from the file, in the order it reads them.
-    pub fn flags(&self, command: CommandName) -> Vec<OsString> {
-        self.commands
-            .get(&command)
-            .into_iter()
-            .flatten()
-            .flat_map(ConfigOption::flags)
-            .collect()
+    /// The flags `command` reads from the file, in the order it reads them,
+    /// failing when the file gives an option given once whose long name is in
+    /// `written`, the options written on the command line.
+    pub fn flags(
+        &self,
+        command: CommandName,
+        written: &[String],
+    ) -> Result<Vec<OsString>, ConfigFileError> {
+        let options = self
+            .commands
+            .iter()
+            .find(|(name, _)| *name == command)
+            .map_or(&[][..], |(_, options)| options);
+        let keys: Vec<ConfigKey> = options
+            .iter()
+            .filter(|option| !option.is_list && written.contains(&option.key.name))
+            .map(|option| option.key.clone())
+            .collect();
+        if !keys.is_empty() {
+            return Err(ConfigFileError::Written {
+                path: self.path.clone(),
+                keys,
+            });
+        }
+        Ok(options.iter().flat_map(ConfigOption::flags).collect())
     }
 }
 
 /// An option given by a key, with the value of each of its flags.
 #[derive(Debug, Clone)]
 struct ConfigOption {
-    name: String,
+    /// The key giving the option, named after it.
+    key: ConfigKey,
+    /// Whether each flag of the option adds to its values.
+    is_list: bool,
     values: Vec<String>,
 }
 
@@ -81,60 +108,100 @@ impl ConfigOption {
     fn flags(&self) -> impl Iterator<Item = OsString> {
         self.values
             .iter()
-            .map(|value| format!("--{}={value}", self.name).into())
+            .map(|value| format!("--{}={value}", self.key.name).into())
     }
 }
 
-/// Reads the keys of a file against the options of every command, collecting
+/// Reads the keys of a file against the syntax of every command, collecting
 /// every invalid key.
 struct ConfigReader {
-    options: Vec<(CommandName, Vec<CommandOption>)>,
+    commands: Vec<(CommandName, CommandSyntax)>,
     errors: Vec<ConfigKeyError>,
 }
 
 impl ConfigReader {
     fn new() -> Self {
         Self {
-            options: CommandName::ALL
+            commands: CommandName::ALL
                 .into_iter()
-                .map(|command| (command, command.options()))
+                .map(|command| (command, command.syntax()))
                 .collect(),
             errors: Vec::new(),
         }
     }
 
-    /// Reads `table`, the top level of a file, failing with every invalid key.
-    fn read(mut self, table: Table) -> Result<ConfigFile, Vec<ConfigKeyError>> {
+    /// Reads `table`, the top level of a file, into the options each command
+    /// reads, failing with every invalid key.
+    fn read(
+        mut self,
+        table: Table,
+    ) -> Result<Vec<(CommandName, Vec<ConfigOption>)>, Vec<ConfigKeyError>> {
         let mut shared = Vec::new();
-        let mut tables = HashMap::new();
+        let mut tables = Vec::new();
         for (name, value) in table {
             match CommandName::from_name(&name) {
-                Some(command) => {
-                    if let Some(options) = self.read_table(command, value) {
-                        tables.insert(command, options);
-                    }
-                }
+                Some(command) => tables.extend(self.read_table(command, value)),
                 None => shared.extend(self.read_option(ConfigKey { table: None, name }, value)),
             }
         }
-        if !self.errors.is_empty() {
-            return Err(self.errors);
+        let commands = self.compose(shared, tables);
+        for (_, options) in &commands {
+            self.check_repeated(options);
         }
-        let commands = self
-            .options
+        if self.errors.is_empty() {
+            Ok(commands)
+        } else {
+            Err(self.errors)
+        }
+    }
+
+    /// The options each command reads: those of `shared`, at the top level,
+    /// that it has, then those of its table in `tables`.
+    fn compose(
+        &self,
+        shared: Vec<ConfigOption>,
+        mut tables: Vec<(CommandName, Vec<ConfigOption>)>,
+    ) -> Vec<(CommandName, Vec<ConfigOption>)> {
+        self.commands
             .iter()
-            .map(|(command, options)| {
-                let has = |option: &&ConfigOption| options.iter().any(|o| o.name == option.name);
-                let read = shared.iter().filter(has).cloned();
-                let own = tables.remove(command).unwrap_or_default();
+            .map(|(command, syntax)| {
+                let read = shared
+                    .iter()
+                    .filter(|option| syntax.option(&option.key.name).is_some())
+                    .cloned();
+                let own = tables
+                    .iter()
+                    .position(|(table, _)| table == command)
+                    .map(|i| tables.swap_remove(i).1)
+                    .unwrap_or_default();
                 (*command, read.chain(own).collect())
             })
-            .collect();
-        Ok(ConfigFile { commands })
+            .collect()
+    }
+
+    /// Fails on each option given once that `options`, those of one command,
+    /// give again, which only a table can do after the top level.
+    fn check_repeated(&mut self, options: &[ConfigOption]) {
+        for (i, option) in options.iter().enumerate() {
+            let repeats = !option.is_list
+                && options[..i]
+                    .iter()
+                    .any(|earlier| earlier.key.name == option.key.name);
+            if repeats {
+                self.errors.push(ConfigKeyError {
+                    key: option.key.clone(),
+                    kind: ConfigKeyErrorKind::Repeated,
+                });
+            }
+        }
     }
 
     /// Reads `value`, the table of `command`, unless it is not a table.
-    fn read_table(&mut self, command: CommandName, value: Value) -> Option<Vec<ConfigOption>> {
+    fn read_table(
+        &mut self,
+        command: CommandName,
+        value: Value,
+    ) -> Option<(CommandName, Vec<ConfigOption>)> {
         let Value::Table(table) = value else {
             self.errors.push(ConfigKeyError {
                 key: ConfigKey {
@@ -155,40 +222,72 @@ impl ConfigReader {
                 self.read_option(key, value)
             })
             .collect();
-        Some(options)
+        Some((command, options))
     }
 
-    /// Reads `value` as the values of the option `key` names, unless it is
-    /// invalid.
+    /// Reads `value` as the option `key` names, unless it is invalid.
     fn read_option(&mut self, key: ConfigKey, value: Value) -> Option<ConfigOption> {
-        let values = if ConfigFile::UNWRITABLE.contains(&key.name.as_str()) {
-            Err(ConfigKeyErrorKind::Unwritable)
-        } else {
-            match self.find(&key) {
-                Some(option) => Self::values(option.is_list, value),
-                None => Err(ConfigKeyErrorKind::Unknown),
-            }
-        };
-        match values {
-            Ok(values) => Some(ConfigOption {
-                name: key.name,
-                values,
-            }),
-            Err(kind) => {
-                self.errors.push(ConfigKeyError { key, kind });
+        match self.option(key, value) {
+            Ok(option) => Some(option),
+            Err(errors) => {
+                self.errors.extend(errors);
                 None
             }
         }
     }
 
-    /// The option `key` names among those of the commands reading it: the
-    /// command whose table holds it, or every command at the top level.
-    fn find(&self, key: &ConfigKey) -> Option<&CommandOption> {
-        self.options
+    /// The option `key` names, with the values `value` gives, each checked as
+    /// the command line checks the value of one flag.
+    fn option(&self, key: ConfigKey, value: Value) -> Result<ConfigOption, Vec<ConfigKeyError>> {
+        let fail = |kinds: Vec<ConfigKeyErrorKind>| -> Vec<ConfigKeyError> {
+            kinds
+                .into_iter()
+                .map(|kind| ConfigKeyError {
+                    key: key.clone(),
+                    kind,
+                })
+                .collect()
+        };
+        if ConfigFile::UNWRITABLE.contains(&key.name.as_str()) {
+            return Err(fail(vec![ConfigKeyErrorKind::Unwritable]));
+        }
+        let Some(option) = self
+            .syntax(key.table)
+            .find_map(|syntax| syntax.option(&key.name))
+        else {
+            return Err(fail(vec![ConfigKeyErrorKind::Unknown]));
+        };
+        let is_list = option.is_list();
+        let values = Self::values(is_list, value).map_err(|kind| fail(vec![kind]))?;
+        let rejected: Vec<ConfigKeyErrorKind> = values
             .iter()
-            .filter(|(command, _)| key.table.is_none_or(|table| table == *command))
-            .flat_map(|(_, options)| options)
-            .find(|option| option.name == key.name)
+            .filter_map(|value| {
+                let rejection = option.check(value).err()?;
+                Some(ConfigKeyErrorKind::InvalidValue {
+                    value: value.clone(),
+                    rejection,
+                })
+            })
+            .collect();
+        if !rejected.is_empty() {
+            return Err(fail(rejected));
+        }
+        Ok(ConfigOption {
+            key,
+            is_list,
+            values,
+        })
+    }
+
+    /// The syntax of the commands reading a key in the table of `table`, or at
+    /// the top level when `None`. The commands share the syntax of an option
+    /// they both have, so a key at the top level is checked against the first
+    /// command having it.
+    fn syntax(&self, table: Option<CommandName>) -> impl Iterator<Item = &CommandSyntax> {
+        self.commands
+            .iter()
+            .filter(move |(command, _)| table.is_none_or(|table| table == *command))
+            .map(|(_, syntax)| syntax)
     }
 
     /// The value of each flag `value` gives: one string for an option given

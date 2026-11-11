@@ -123,7 +123,7 @@ fn reads_path_relative_to_current_directory() {
 }
 
 #[test]
-fn fails_on_option_given_once_in_file_and_command_line() {
+fn fails_on_options_given_once_in_file_and_command_line() {
     let file = config("detached = \"deny\"\n");
     let run = Run::new(&[
         "branch",
@@ -133,25 +133,76 @@ fn fails_on_option_given_once_in_file_and_command_line() {
         "--detached",
         "allow",
     ]);
-    assert_status!(run, RunStatus::SyntaxError(_));
-    assert_snapshot!(run, @"
-    exit: 3
+    assert_status!(run, RunStatus::ConfigFileError(_));
+    assert_eq!(run.output.code, Some(2));
+
+    let repo = repo("feat: add matcher\n");
+    repo.write(
+        "vcs-lint.toml",
+        "type-defaults = \"never\"\ntype = [\"feat\"]\n[commit]\nscope-mode = \"required\"\n",
+    );
+    let args = [
+        "commit",
+        "MSG",
+        "--config",
+        "vcs-lint.toml",
+        "--scope-mode",
+        "optional",
+        "--type-defaults=always",
+        "--type",
+        "fix",
+    ];
+    assert_snapshot!(repo.run(&args), @"
+    exit: 2
     --- stdout
     --- stderr
-    error: the argument '--detached <RULE>' cannot be used multiple times
-
-    Usage: vcs-lint branch [OPTIONS] [NAME]
-
-    For more information, try '--help'.
+    error: config file `vcs-lint.toml` and the command line both give options that can be given once
+      `type-defaults` and `--type-defaults`
+      `commit.scope-mode` and `--scope-mode`
     ");
 }
 
 #[test]
-fn fails_on_value_command_line_rejects() {
-    let file = config("[branch]\ndetached = \"Deny\"\nprotected = [\"main\", \" , \"]\n");
+fn fails_on_values_command_line_rejects() {
+    let file = config("[branch]\ndetached = \"Deny\"\n");
     let run = Run::new(&["branch", "HEAD", "--config", path(&file)]);
-    assert_status!(run, RunStatus::SyntaxError(_));
-    assert_eq!(run.output.code, Some(3));
+    assert_status!(run, RunStatus::ConfigFileError(_));
+    assert_eq!(run.output.code, Some(2));
+
+    let repo = repo("feat: add matcher\n");
+    repo.write(
+        "vcs-lint.toml",
+        "scope = [\"core\", \" , \"]\n[branch]\ndetached = \"Deny\"\n[commit]\nscope-mode = \"\"\n",
+    );
+    assert_snapshot!(repo.run(&["branch", "--config", "vcs-lint.toml"]), @r#"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: invalid config file `vcs-lint.toml`
+      invalid value " , " of `scope`
+        every value is empty
+      invalid value "Deny" of `branch.detached`
+        expected `allow` or `deny`
+      invalid value "" of `commit.scope-mode`
+        expected `auto`, `required`, `optional` or `forbidden`
+    "#);
+}
+
+#[test]
+fn fails_on_option_given_once_at_both_levels() {
+    let repo = repo("feat: add matcher\n");
+    repo.write(
+        "vcs-lint.toml",
+        "detached = \"deny\"\n[branch]\ndetached = \"allow\"\n",
+    );
+    assert_snapshot!(repo.run(&["commit", "MSG", "--config", "vcs-lint.toml"]), @"
+    exit: 2
+    --- stdout
+    --- stderr
+    error: invalid config file `vcs-lint.toml`
+      repeated key `branch.detached`
+        `detached` at the top level gives the same option, which can be given once
+    ");
 }
 
 #[test]
@@ -201,15 +252,15 @@ fn fails_on_every_invalid_key_whichever_command_runs() {
     --- stderr
     error: invalid config file `vcs-lint.toml`
       unknown key `scopes`
-        no command has `--scopes`
+        no command has an option of this name
       disallowed key `config`
-        `--config` cannot be given in a config file
+        this option cannot be given in a config file
       invalid value of `type`
-        expected an array of strings, each given to one `--type`
+        expected an array of strings
       unknown key `branch.scope`
-        `vcs-lint branch` has no `--scope`
+        `vcs-lint branch` has no option of this name
       unknown key `branch."detached HEAD"`
-        `vcs-lint branch` has no `--detached HEAD`
+        `vcs-lint branch` has no option of this name
       invalid value of `commit.scope-mode`
         expected a string
     "#);
