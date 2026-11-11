@@ -3,7 +3,11 @@
 use clap::{Args, ValueEnum};
 
 use super::{ConfigClapArgs, ListClapValues, SeverityClapArgs, TypeClapArgs};
-use crate::resolve::branch::BranchRawConfig;
+use crate::{
+    hint::{Hint, Hints},
+    lint::branch::BranchRule,
+    resolve::branch::BranchRawConfig,
+};
 
 #[derive(Debug, Args)]
 pub struct BranchClapArgs {
@@ -13,6 +17,9 @@ pub struct BranchClapArgs {
     branch: Option<String>,
     #[command(flatten)]
     types: TypeClapArgs,
+    /// Hint printed when the name after the type is invalid
+    #[arg(long = "format-hint", value_name = "TEXT", value_parser = Hint::parse)]
+    format_hint: Option<Hint>,
     /// Branch that fails whatever its format, given as repeated flags or
     /// comma-separated values
     #[arg(
@@ -37,12 +44,18 @@ pub struct BranchClapArgs {
         value_parser = ListClapValues::parse
     )]
     protected_excluded: Option<Vec<ListClapValues>>,
+    /// Hint printed when the branch is protected
+    #[arg(long = "protected-hint", value_name = "TEXT", value_parser = Hint::parse)]
+    protected_hint: Option<Hint>,
     #[arg(
         long = "detached",
         value_name = "RULE",
         help = "Whether a detached HEAD passes\n[default: allow]"
     )]
     detached: Option<BranchDetachedClapRule>,
+    /// Hint printed when a detached HEAD fails
+    #[arg(long = "detached-hint", value_name = "TEXT", value_parser = Hint::parse)]
+    detached_hint: Option<Hint>,
     #[command(flatten)]
     pub(super) severity: SeverityClapArgs,
     #[command(flatten)]
@@ -59,6 +72,16 @@ pub enum BranchDetachedClapRule {
 }
 
 impl BranchClapArgs {
+    /// The hints given to the rules of the command.
+    pub fn hints(&self) -> Hints<BranchRule> {
+        Hints::new([
+            (BranchRule::Protected, self.protected_hint.clone()),
+            (BranchRule::Detached, self.detached_hint.clone()),
+            (BranchRule::Type, self.types.hint.clone()),
+            (BranchRule::Format, self.format_hint.clone()),
+        ])
+    }
+
     pub fn into_raw_config(self) -> BranchRawConfig {
         let (types, type_defaults) = self.types.into_raw_values();
         BranchRawConfig {

@@ -4,6 +4,7 @@ pub mod branch;
 pub mod commit;
 pub mod config_file;
 pub mod git;
+pub mod hint;
 pub mod history;
 pub mod list;
 pub mod version;
@@ -13,10 +14,15 @@ use std::{fmt::Display, process::ExitCode};
 use branch::{BranchLintError, BranchResolveError};
 use commit::{CommitLintError, CommitResolveError};
 use config_file::ConfigFileError;
+use hint::Hinted;
 use history::{HistoryLintError, HistoryResolveError};
 use version::RequiredVersionError;
 
-use crate::cli::SeverityClapLevel;
+use crate::{
+    cli::SeverityClapLevel,
+    hint::Hints,
+    lint::{branch::BranchRule, commit::CommitRule, history::HistoryRule},
+};
 
 /// How a run ends, before anything is printed.
 #[derive(Debug)]
@@ -45,28 +51,29 @@ pub enum RunStatus {
     /// linted. Exits with `2`.
     HistoryResolveError(HistoryResolveError),
     /// The branch name breaks a rule. Exits with `1`.
-    BranchLintError(BranchLintError),
+    BranchLintError(Hinted<BranchLintError>),
     /// The commit message breaks a rule. Exits with `1`.
-    CommitLintError(CommitLintError),
+    CommitLintError(Hinted<CommitLintError>),
     /// The history of the revision breaks a rule. Exits with `1`.
-    HistoryLintError(HistoryLintError),
+    HistoryLintError(Hinted<HistoryLintError>),
     /// The branch name breaks a rule, reported as a warning. Exits with `0`.
-    BranchLintWarning(BranchLintError),
+    BranchLintWarning(Hinted<BranchLintError>),
     /// The commit message breaks a rule, reported as a warning. Exits with
     /// `0`.
-    CommitLintWarning(CommitLintError),
+    CommitLintWarning(Hinted<CommitLintError>),
     /// The history of the revision breaks a rule, reported as a warning.
     /// Exits with `0`.
-    HistoryLintWarning(HistoryLintError),
+    HistoryLintWarning(Hinted<HistoryLintError>),
 }
 
 /// The statuses a run of one command can end with once its command line is
 /// read: why what it refers to cannot be resolved, and a violation reported as
-/// an error or as a warning.
-pub struct CommandStatuses<R, L> {
+/// an error or as a warning, followed by the hints of the rules `B` it breaks.
+pub struct CommandStatuses<R, L, B> {
     resolve_error: fn(R) -> RunStatus,
-    lint_error: fn(L) -> RunStatus,
-    lint_warning: fn(L) -> RunStatus,
+    lint_error: fn(Hinted<L>) -> RunStatus,
+    lint_warning: fn(Hinted<L>) -> RunStatus,
+    broken_rules: fn(&L) -> Vec<B>,
 }
 
 impl RunStatus {
@@ -107,42 +114,57 @@ impl RunStatus {
     }
 }
 
-impl<R, L> CommandStatuses<R, L> {
+impl<R, L, B: PartialEq> CommandStatuses<R, L, B> {
     /// How the run ends with `linted`, the result of linting what the command
     /// refers to or why it cannot be resolved, a violation being reported as
-    /// `severity` says.
-    pub fn end(&self, linted: Result<Result<(), L>, R>, severity: SeverityClapLevel) -> RunStatus {
+    /// `severity` says and followed by those of `hints` given to the rules it
+    /// breaks.
+    pub fn end(
+        &self,
+        linted: Result<Result<(), L>, R>,
+        severity: SeverityClapLevel,
+        hints: &Hints<B>,
+    ) -> RunStatus {
         match linted {
             Ok(Ok(())) => RunStatus::Success,
-            Ok(Err(err)) => match severity {
-                SeverityClapLevel::Error => (self.lint_error)(err),
-                SeverityClapLevel::Warning => (self.lint_warning)(err),
-            },
+            Ok(Err(err)) => {
+                let hinted = Hinted {
+                    hints: hints.for_rules(&(self.broken_rules)(&err)),
+                    report: err,
+                };
+                match severity {
+                    SeverityClapLevel::Error => (self.lint_error)(hinted),
+                    SeverityClapLevel::Warning => (self.lint_warning)(hinted),
+                }
+            }
             Err(err) => (self.resolve_error)(err),
         }
     }
 }
 
-impl CommandStatuses<BranchResolveError, BranchLintError> {
+impl CommandStatuses<BranchResolveError, BranchLintError, BranchRule> {
     pub const BRANCH: Self = Self {
         resolve_error: RunStatus::BranchResolveError,
         lint_error: RunStatus::BranchLintError,
         lint_warning: RunStatus::BranchLintWarning,
+        broken_rules: BranchLintError::broken_rules,
     };
 }
 
-impl CommandStatuses<CommitResolveError, CommitLintError> {
+impl CommandStatuses<CommitResolveError, CommitLintError, CommitRule> {
     pub const COMMIT: Self = Self {
         resolve_error: RunStatus::CommitResolveError,
         lint_error: RunStatus::CommitLintError,
         lint_warning: RunStatus::CommitLintWarning,
+        broken_rules: CommitLintError::broken_rules,
     };
 }
 
-impl CommandStatuses<HistoryResolveError, HistoryLintError> {
+impl CommandStatuses<HistoryResolveError, HistoryLintError, HistoryRule> {
     pub const HISTORY: Self = Self {
         resolve_error: RunStatus::HistoryResolveError,
         lint_error: RunStatus::HistoryLintError,
         lint_warning: RunStatus::HistoryLintWarning,
+        broken_rules: HistoryLintError::broken_rules,
     };
 }

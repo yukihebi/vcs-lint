@@ -3,7 +3,11 @@
 use clap::{Args, ValueEnum, builder::NonEmptyStringValueParser};
 
 use super::{ConfigClapArgs, NetworkClapArgs, SeverityClapArgs};
-use crate::resolve::history::HistoryRawConfig;
+use crate::{
+    hint::{Hint, Hints},
+    lint::history::HistoryRule,
+    resolve::history::HistoryRawConfig,
+};
 
 #[derive(Debug, Args)]
 pub struct HistoryClapArgs {
@@ -33,6 +37,9 @@ pub struct HistoryClapArgs {
     remote: Option<String>,
     #[command(flatten)]
     network: NetworkClapArgs,
+    /// Hint printed when the revision is behind the base branch
+    #[arg(long = "base-hint", value_name = "TEXT", value_parser = Hint::parse)]
+    base_hint: Option<Hint>,
     #[command(flatten)]
     pub(super) severity: SeverityClapArgs,
     #[command(flatten)]
@@ -49,6 +56,11 @@ pub enum HistoryBaseClapSource {
 }
 
 impl HistoryClapArgs {
+    /// The hints given to the rules of the command.
+    pub fn hints(&self) -> Hints<HistoryRule> {
+        Hints::new([(HistoryRule::Base, self.base_hint.clone())])
+    }
+
     pub fn into_raw_config(self) -> HistoryRawConfig {
         HistoryRawConfig {
             rev: self.rev,

@@ -34,6 +34,19 @@ pub enum BranchDetachedRule {
     Forbidden,
 }
 
+/// A rule of a branch name, which can be given a hint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BranchRule {
+    /// A detached HEAD passes only where allowed.
+    Detached,
+    /// A protected branch fails.
+    Protected,
+    /// The name starts with an allowed type followed by `/`.
+    Type,
+    /// The name after the type is lowercase kebab-case.
+    Format,
+}
+
 impl BranchLintRules {
     /// Separates the type of a branch name from its name, at its first
     /// occurrence.

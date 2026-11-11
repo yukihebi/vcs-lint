@@ -26,6 +26,18 @@ pub struct CommitLintRules {
     pub scopes: CommitScopeRule,
 }
 
+/// A rule of a commit message, which can be given a hint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommitRule {
+    /// The header starts with an allowed type.
+    Type,
+    /// The header has a scope as the scope rule says.
+    Scope,
+    /// The message has a header of the form of the scope rule, with exactly
+    /// one space after `:` and a subject.
+    Format,
+}
+
 /// Whether headers carry a scope, and which scopes they may use.
 #[derive(Debug, PartialEq, Eq)]
 pub enum CommitScopeRule {

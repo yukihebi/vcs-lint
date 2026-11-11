@@ -372,6 +372,9 @@ fn prints_help() {
               - always: Allowed besides the given types
               - never:  Never allowed
 
+          --type-hint <TEXT>
+              Hint printed when the type is missing or not allowed
+
           --scope <SCOPE>
               Allowed scope, given as repeated flags or comma-separated values
 
@@ -390,6 +393,12 @@ fn prints_help() {
               - required:  Headers must have an allowed scope
               - optional:  Headers may have an allowed scope, or none
               - forbidden: Headers must not have a scope; `--scope` is ignored
+
+          --scope-hint <TEXT>
+              Hint printed when the scope is unexpected, missing or not allowed
+
+          --format-hint <TEXT>
+              Hint printed when the message is empty, or the header is malformed or has invalid spacing or an empty subject
 
           --severity <LEVEL>
               How violations are reported

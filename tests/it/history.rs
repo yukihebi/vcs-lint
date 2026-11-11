@@ -129,6 +129,28 @@ fn rejects_revision_behind_fetched_tip_by_missing_commits() {
 }
 
 #[test]
+fn prints_hint_after_revision_behind_base() {
+    let clones = Clones::new();
+    clones.advance_remote(1);
+    clones.repo.git(&["fetch", "-q"]);
+    let args = [
+        "history",
+        "--base",
+        "main",
+        "--base-hint",
+        "merge or rebase onto origin/main",
+    ];
+    assert_snapshot!(clones.run(&args), @"
+    exit: 1
+    --- stdout
+    --- stderr
+    error: `HEAD` is behind base branch `main` on `origin`
+      missing 1 commit of the base
+    hint: merge or rebase onto origin/main
+    ");
+}
+
+#[test]
 fn rejects_tip_on_remote_missing_from_repository() {
     let clones = Clones::new();
     clones.advance_remote(1);

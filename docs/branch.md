@@ -33,7 +33,14 @@ exec vcs-lint branch --protected main --detached deny
 ```
 
 The rules and their messages do not depend on where the command runs, so it
-can also run in a `pre-push` hook or in CI.
+can also run in a `pre-push` hook or in CI. What to do about a violation may
+depend on it, and can be given as a [hint](cli.md#hints):
+
+```
+$ vcs-lint branch main --protected main --protected-hint 'switch to a new branch with `git switch -c <type>/<name>`'
+error: branch `main` is protected
+hint: switch to a new branch with `git switch -c <type>/<name>`
+```
 
 ## Arguments
 
@@ -53,6 +60,11 @@ can also run in a `pre-push` hook or in CI.
 - `--type-defaults <MODE>`: when the default types are included in the
   [allowed types](#definitions), `auto`, `always` or `never` (see
   [Defaults](cli.md#defaults)). `auto` when not given.
+- `--type-hint <TEXT>`: a [hint](cli.md#hints) printed when the type is
+  missing or not one of the [allowed types](#definitions) (see
+  [Format](#format)).
+- `--format-hint <TEXT>`: a [hint](cli.md#hints) printed when the name after
+  the type is invalid (see [Format](#format)).
 - `--protected <BRANCH>`: adds to the [protected branches](#definitions). A
   [list option](cli.md#list-options).
 - `--protected-dir <DIR>`: adds the directories under `DIR` to the
@@ -60,8 +72,12 @@ can also run in a `pre-push` hook or in CI.
   A [list option](cli.md#list-options).
 - `--protected-exclude <BRANCH>`: excludes from the
   [protected branches](#definitions). A [list option](cli.md#list-options).
+- `--protected-hint <TEXT>`: a [hint](cli.md#hints) printed when the branch is
+  [protected](#protected-branches).
 - `--detached <RULE>`: whether a [detached HEAD](#detached-head) passes,
   `allow` or `deny`. `allow` when not given.
+- `--detached-hint <TEXT>`: a [hint](cli.md#hints) printed when a
+  [detached HEAD](#detached-head) fails.
 - `--severity <LEVEL>`: how violations are reported, `error` or `warning`
   (see [Severity](cli.md#severity)). `error` when not given.
 - `--config <PATH>`: reads options from a

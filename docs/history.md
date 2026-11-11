@@ -60,6 +60,8 @@ A shallow clone, as CI often makes, must hold enough history to find the tip
   `--base-from remote`. `origin` when not given.
 - `--network <ACCESS>`: whether vcs-lint may access the network, `allow` or
   `deny`. `allow` when not given.
+- `--base-hint <TEXT>`: a [hint](cli.md#hints) printed when `REV` is behind
+  the base (see [Rules](#rules)).
 - `--severity <LEVEL>`: how violations are reported, `error` or `warning`
   (see [Severity](cli.md#severity)). `error` when not given.
 - `--config <PATH>`: reads options from a

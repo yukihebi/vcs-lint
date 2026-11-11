@@ -26,6 +26,7 @@ use clap::{
 };
 
 use crate::{
+    hint::Hint,
     report::config_file::ValueRejection,
     resolve::{DEFAULT_TYPES, list::ListRawValues},
 };
@@ -321,6 +322,9 @@ struct TypeClapArgs {
         help = "When the default types are allowed\n[default: auto]"
     )]
     defaults: Option<TypeDefaultsClapMode>,
+    /// Hint printed when the type is missing or not allowed
+    #[arg(long = "type-hint", value_name = "TEXT", value_parser = Hint::parse)]
+    hint: Option<Hint>,
 }
 
 impl TypeClapArgs {
