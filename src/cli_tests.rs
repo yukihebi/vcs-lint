@@ -7,8 +7,7 @@ use clap::error::ErrorKind;
 
 use super::{
     ClapCommand, CommandName, NetworkClapAccess, Parsed, SeverityClapLevel, TypeDefaultsClapMode,
-    branch::BranchDetachedClapRule, commit::CommitScopeClapMode,
-    history::HistoryBaseFromClapSource,
+    branch::BranchDetachedClapRule, commit::CommitScopeClapMode, history::HistoryBaseClapSource,
 };
 use crate::{
     report::config_file::ValueRejection,
@@ -328,7 +327,7 @@ fn history_takes_arguments_and_options() {
         HistoryRawConfig {
             rev: Some("feat/x".to_owned()),
             base: Some("main".to_owned()),
-            base_from: Some(HistoryBaseFromClapSource::Remote),
+            base_from: Some(HistoryBaseClapSource::Remote),
             remote: Some("upstream".to_owned()),
             network: Some(NetworkClapAccess::Deny),
         }
@@ -353,7 +352,7 @@ fn history_options_are_none_when_omitted() {
 fn history_accepts_each_source_and_network_access() {
     assert_eq!(
         history(&["--base-from", "local"]).base_from,
-        Some(HistoryBaseFromClapSource::Local)
+        Some(HistoryBaseClapSource::Local)
     );
     assert_eq!(
         history(&["--network", "allow"]).network,

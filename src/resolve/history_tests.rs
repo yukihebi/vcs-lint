@@ -1,13 +1,13 @@
 use super::HistoryRawConfig;
 use crate::{
-    cli::{NetworkClapAccess, history::HistoryBaseFromClapSource},
+    cli::{NetworkClapAccess, history::HistoryBaseClapSource},
     git::Git,
     lint::history::{HistoryBase, HistoryBaseSource},
     report::history::HistoryResolveError,
 };
 
 fn source(
-    base_from: Option<HistoryBaseFromClapSource>,
+    base_from: Option<HistoryBaseClapSource>,
     remote: Option<&str>,
     network: Option<NetworkClapAccess>,
 ) -> HistoryBaseSource {
@@ -43,7 +43,7 @@ fn reads_base_from_given_remote() {
     assert_eq!(source(None, Some("upstream"), None), remote("upstream"));
     assert_eq!(
         source(
-            Some(HistoryBaseFromClapSource::Remote),
+            Some(HistoryBaseClapSource::Remote),
             Some("upstream"),
             Some(NetworkClapAccess::Allow)
         ),
@@ -72,7 +72,7 @@ fn reads_local_branch_whatever_remote_and_network() {
     ] {
         assert_eq!(
             source(
-                Some(HistoryBaseFromClapSource::Local),
+                Some(HistoryBaseClapSource::Local),
                 Some("upstream"),
                 network
             ),
@@ -99,7 +99,7 @@ fn fails_on_base_with_revision_syntax_before_reading_revision() {
     let config = HistoryRawConfig {
         rev: Some("no such revision".to_owned()),
         base: Some("main~1".to_owned()),
-        base_from: Some(HistoryBaseFromClapSource::Local),
+        base_from: Some(HistoryBaseClapSource::Local),
         remote: None,
         network: None,
     };

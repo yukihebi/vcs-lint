@@ -70,7 +70,7 @@ impl HistoryLintRules {
             HistoryTip::NotLocal { id } => HistoryLintError::TipNotLocal {
                 rev,
                 base,
-                tip: id.clone(),
+                id: id.clone(),
             },
         })
     }
