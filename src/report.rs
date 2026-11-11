@@ -4,6 +4,7 @@ pub mod branch;
 pub mod commit;
 pub mod config_file;
 pub mod git;
+pub mod history;
 pub mod list;
 pub mod version;
 
@@ -12,6 +13,7 @@ use std::{fmt::Display, process::ExitCode};
 use branch::{BranchLintError, BranchResolveError};
 use commit::{CommitLintError, CommitResolveError};
 use config_file::ConfigFileError;
+use history::{HistoryLintError, HistoryResolveError};
 use version::RequiredVersionError;
 
 /// How a run ends, before anything is printed.
@@ -37,15 +39,23 @@ pub enum RunStatus {
     /// The commit message or the rules cannot be resolved, so nothing is
     /// linted. Exits with `2`.
     CommitResolveError(CommitResolveError),
+    /// The revision or the tip of its base cannot be resolved, so nothing is
+    /// linted. Exits with `2`.
+    HistoryResolveError(HistoryResolveError),
     /// The branch name breaks a rule. Exits with `1`.
     BranchLintError(BranchLintError),
     /// The commit message breaks a rule. Exits with `1`.
     CommitLintError(CommitLintError),
+    /// The history of the revision breaks a rule. Exits with `1`.
+    HistoryLintError(HistoryLintError),
     /// The branch name breaks a rule, reported as a warning. Exits with `0`.
     BranchLintWarning(BranchLintError),
     /// The commit message breaks a rule, reported as a warning. Exits with
     /// `0`.
     CommitLintWarning(CommitLintError),
+    /// The history of the revision breaks a rule, reported as a warning.
+    /// Exits with `0`.
+    HistoryLintWarning(HistoryLintError),
 }
 
 impl RunStatus {
@@ -65,10 +75,13 @@ impl RunStatus {
             Self::ConfigFileError(err) => Self::fail(err, 2),
             Self::BranchResolveError(err) => Self::fail(err, 2),
             Self::CommitResolveError(err) => Self::fail(err, 2),
+            Self::HistoryResolveError(err) => Self::fail(err, 2),
             Self::BranchLintError(err) => Self::fail(err, 1),
             Self::CommitLintError(err) => Self::fail(err, 1),
+            Self::HistoryLintError(err) => Self::fail(err, 1),
             Self::BranchLintWarning(err) => Self::warn(err),
             Self::CommitLintWarning(err) => Self::warn(err),
+            Self::HistoryLintWarning(err) => Self::warn(err),
         }
     }
 

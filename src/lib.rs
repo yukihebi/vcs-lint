@@ -1,5 +1,6 @@
 //! Lints branch names and commit message headers against the types and scopes
-//! given on the command line or in a config file.
+//! given on the command line or in a config file, and whether the history of a
+//! revision contains the tip of its base branch.
 
 use std::ffi::OsString;
 
@@ -61,31 +62,47 @@ fn run_parsed(parsed: Result<Parsed, clap::Error>) -> RunStatus {
 fn run_command(command: ClapCommand) -> RunStatus {
     let severity = command.severity();
     match command {
-        ClapCommand::Branch(args) => {
-            let (target, rules) = match args.into_raw_config().resolve(&Git) {
-                Ok(resolved) => resolved,
-                Err(err) => return RunStatus::BranchResolveError(err),
-            };
-            match rules.lint(&target) {
-                Ok(()) => RunStatus::Success,
-                Err(err) => match severity {
-                    SeverityClapLevel::Error => RunStatus::BranchLintError(err),
-                    SeverityClapLevel::Warning => RunStatus::BranchLintWarning(err),
-                },
-            }
-        }
-        ClapCommand::Commit(args) => {
-            let (target, rules) = match args.into_raw_config().resolve(&Git) {
-                Ok(resolved) => resolved,
-                Err(err) => return RunStatus::CommitResolveError(err),
-            };
-            match rules.lint(&target) {
-                Ok(()) => RunStatus::Success,
-                Err(err) => match severity {
-                    SeverityClapLevel::Error => RunStatus::CommitLintError(err),
-                    SeverityClapLevel::Warning => RunStatus::CommitLintWarning(err),
-                },
-            }
-        }
+        ClapCommand::Branch(args) => match args.into_raw_config().resolve(&Git) {
+            Ok((target, rules)) => linted(
+                severity,
+                rules.lint(&target),
+                RunStatus::BranchLintError,
+                RunStatus::BranchLintWarning,
+            ),
+            Err(err) => RunStatus::BranchResolveError(err),
+        },
+        ClapCommand::Commit(args) => match args.into_raw_config().resolve(&Git) {
+            Ok((target, rules)) => linted(
+                severity,
+                rules.lint(&target),
+                RunStatus::CommitLintError,
+                RunStatus::CommitLintWarning,
+            ),
+            Err(err) => RunStatus::CommitResolveError(err),
+        },
+        ClapCommand::History(args) => match args.into_raw_config().resolve(&Git) {
+            Ok((target, rules)) => linted(
+                severity,
+                rules.lint(&target),
+                RunStatus::HistoryLintError,
+                RunStatus::HistoryLintWarning,
+            ),
+            Err(err) => RunStatus::HistoryResolveError(err),
+        },
+    }
+}
+
+/// How a run that linted ends with `result`, a violation being reported as
+/// `error` or as `warning` as `severity` says.
+fn linted<E>(
+    severity: SeverityClapLevel,
+    result: Result<(), E>,
+    error: fn(E) -> RunStatus,
+    warning: fn(E) -> RunStatus,
+) -> RunStatus {
+    match (result, severity) {
+        (Ok(()), _) => RunStatus::Success,
+        (Err(err), SeverityClapLevel::Error) => error(err),
+        (Err(err), SeverityClapLevel::Warning) => warning(err),
     }
 }

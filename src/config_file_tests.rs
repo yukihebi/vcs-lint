@@ -21,7 +21,7 @@ fn read(text: &str) -> Result<ConfigFile, Vec<ConfigKeyError>> {
 
 /// The flags each command reads from a valid file holding `text`, with no
 /// option written on the command line.
-fn flags(text: &str) -> [(CommandName, Vec<String>); 2] {
+fn flags(text: &str) -> [(CommandName, Vec<String>); 3] {
     let file = read(text).unwrap();
     CommandName::ALL.map(|command| {
         let flags = file.flags(command, &[]).unwrap().into_iter();
@@ -32,11 +32,12 @@ fn flags(text: &str) -> [(CommandName, Vec<String>); 2] {
     })
 }
 
-fn expected(branch: &[&str], commit: &[&str]) -> [(CommandName, Vec<String>); 2] {
+fn expected(branch: &[&str], commit: &[&str], history: &[&str]) -> [(CommandName, Vec<String>); 3] {
     let strings = |flags: &[&str]| flags.iter().copied().map(String::from).collect();
     [
         (CommandName::Branch, strings(branch)),
         (CommandName::Commit, strings(commit)),
+        (CommandName::History, strings(history)),
     ]
 }
 
@@ -69,16 +70,17 @@ fn env(config: Option<&str>) -> Env {
 
 #[test]
 fn empty_file_gives_no_flags() {
-    assert_eq!(flags(""), expected(&[], &[]));
+    assert_eq!(flags(""), expected(&[], &[], &[]));
 }
 
 #[test]
 fn top_level_keys_are_read_by_commands_having_them() {
     assert_eq!(
-        flags("type = [\"feat\"]\nscope = [\"core\"]\nprotected = [\"main\"]"),
+        flags("type = [\"feat\"]\nscope = [\"core\"]\nprotected = [\"main\"]\nbase = \"main\""),
         expected(
             &["--type=feat", "--protected=main"],
-            &["--type=feat", "--scope=core"]
+            &["--type=feat", "--scope=core"],
+            &["--base=main"]
         )
     );
 }
@@ -87,7 +89,7 @@ fn top_level_keys_are_read_by_commands_having_them() {
 fn table_keys_are_read_by_their_command_only() {
     assert_eq!(
         flags("[branch]\ntype = [\"feat\"]\n[commit]\ntype = [\"fix\"]"),
-        expected(&["--type=feat"], &["--type=fix"])
+        expected(&["--type=feat"], &["--type=fix"], &[])
     );
 }
 
@@ -95,7 +97,7 @@ fn table_keys_are_read_by_their_command_only() {
 fn top_level_keys_are_read_before_table_keys_written_before_them() {
     assert_eq!(
         flags("commit = { scope = [\"cli\"] }\nscope = [\"root\"]"),
-        expected(&[], &["--scope=root", "--scope=cli"])
+        expected(&[], &["--scope=root", "--scope=cli"], &[])
     );
 }
 
@@ -103,7 +105,7 @@ fn top_level_keys_are_read_before_table_keys_written_before_them() {
 fn list_key_at_both_levels_is_read_twice() {
     assert_eq!(
         flags("type = [\"feat\"]\n[branch]\ntype = [\"fix\"]"),
-        expected(&["--type=feat", "--type=fix"], &["--type=feat"])
+        expected(&["--type=feat", "--type=fix"], &["--type=feat"], &[])
     );
 }
 
@@ -124,7 +126,7 @@ fn rejects_single_key_at_both_levels_in_table_of_each_command_reading_it() {
 fn single_key_at_top_level_is_not_repeated_by_table_of_command_without_it() {
     assert_eq!(
         flags("scope-mode = \"optional\"\n[branch]\ndetached = \"deny\""),
-        expected(&["--detached=deny"], &["--scope-mode=optional"])
+        expected(&["--detached=deny"], &["--scope-mode=optional"], &[])
     );
 }
 
@@ -138,7 +140,8 @@ fn keys_are_read_in_order_written() {
                 "--scope-mode=optional",
                 "--type-defaults=never",
                 "--scope=core"
-            ]
+            ],
+            &[]
         )
     );
 }
@@ -147,7 +150,7 @@ fn keys_are_read_in_order_written() {
 fn list_option_gives_one_flag_per_string() {
     assert_eq!(
         flags("[commit]\nscope = [\"root\", \" cli,,core\"]\nscope-exclude = []"),
-        expected(&[], &["--scope=root", "--scope= cli,,core"])
+        expected(&[], &["--scope=root", "--scope= cli,,core"], &[])
     );
 }
 
@@ -155,7 +158,11 @@ fn list_option_gives_one_flag_per_string() {
 fn values_are_bound_to_their_flags() {
     assert_eq!(
         flags("[commit]\nscope = [\"-x\", \"--scope\"]\nscope-dir = [\"-h\"]"),
-        expected(&[], &["--scope=-x", "--scope=--scope", "--scope-dir=-h"])
+        expected(
+            &[],
+            &["--scope=-x", "--scope=--scope", "--scope-dir=-h"],
+            &[]
+        )
     );
 }
 

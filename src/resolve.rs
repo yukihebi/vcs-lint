@@ -3,6 +3,7 @@
 
 pub mod branch;
 pub mod commit;
+pub mod history;
 pub mod list;
 pub mod matchable;
 

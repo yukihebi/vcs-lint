@@ -12,6 +12,7 @@ vcs-lint --version
 |---|---|
 | [`branch`](branch.md) | Lint a branch name. |
 | [`commit`](commit.md) | Lint the header of a commit message file. |
+| [`history`](history.md) | Lint whether the history of a revision contains the tip of its base branch. |
 | `help [COMMAND]` | Print the help of vcs-lint or of a command. |
 
 Each command documents its own arguments and options.
@@ -161,7 +162,7 @@ vcs-lint commit COMMIT_EDITMSG --type wip                        # wip alone
 
 ## Config file
 
-`branch` and `commit` read options from the TOML file given with
+Every command reads options from the TOML file given with
 `--config <PATH>`, or from the one [`VCS_LINT_CONFIG`](#vcs_lint_config) names
 when `--config` is not given, so every place that runs vcs-lint, such as hooks
 and CI, can share the same rules. `PATH` is relative to the current directory.
@@ -176,15 +177,19 @@ protected = ["main"]
 [commit]
 scope = ["root"]
 scope-mode = "required"
+
+[history]
+base = "main"
 ```
 
 ### Keys
 
 A key is the long name of an option, without `--`, written at the top level or
-in a `[branch]` or a `[commit]` table, each optional:
+in a table named after a command, such as `[branch]`, each optional:
 
 - A key at the top level is read by every command that has the option, and
-  ignored by the others: `type` by both commands, `scope` by `commit` only.
+  ignored by the others: `type` by `branch` and `commit`, `scope` by `commit`
+  only.
 - A key in a table is read by its command only.
 
 A [list option](#list-options) is an array of strings, each counting as the
@@ -192,8 +197,8 @@ value of one flag: `scope = ["root", "cli"]` means `--scope root --scope cli`,
 and `scope = []` gives no flag. Any other option is a string, such as
 `scope-mode = "required"`.
 
-The arguments, such as `NAME` and `FILE`, `--help` and `--config` cannot be
-written.
+The arguments, such as `NAME`, `FILE` and `REV`, `--help` and `--config`
+cannot be written.
 
 ### Reading options
 
@@ -229,8 +234,8 @@ A file that does not exist, cannot be read or is not TOML fails with status
 - A key in a table giving an option other than a list option that the command
   reads at the top level as well.
 
-Every key is checked whichever command runs, so a file is valid for both
-commands or for neither, and every invalid key is reported at once:
+Every key is checked whichever command runs, so a file is valid for every
+command or for none, and every invalid key is reported at once:
 
 ```
 $ vcs-lint commit COMMIT_EDITMSG --config vcs-lint.toml
@@ -280,10 +285,10 @@ vcs-lint released before this variable ignores it.
 
 ### `VCS_LINT_CONFIG`
 
-The [config file](#config-file) that `branch` and `commit` read when
-`--config` is not given, relative to the current directory. It is read by both
-commands, as the file has a table for each, so it can be set once for every
-place that runs vcs-lint:
+The [config file](#config-file) that every command reads when `--config` is
+not given, relative to the current directory. It is read by every command, as
+the file has a table for each, so it can be set once for every place that runs
+vcs-lint:
 
 ```sh
 export VCS_LINT_CONFIG=vcs-lint.toml
@@ -299,8 +304,8 @@ success.
 
 ### Severity
 
-`branch` and `commit` take `--severity <LEVEL>`, which decides how violations
-are reported:
+Every command takes `--severity <LEVEL>`, which decides how violations are
+reported:
 
 | Level | Violations |
 |---|---|
