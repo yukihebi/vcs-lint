@@ -34,7 +34,7 @@ error: invalid branch name `add-matcher`
 
 See `vcs-lint --help` for options, and the documents below for the detailed rules:
 
-- [Command line](docs/cli.md): commands, list options, output and exit status.
+- [Command line](docs/cli.md): commands, list options, environment variables, output and exit status.
 - [`vcs-lint branch`](docs/branch.md)
 - [`vcs-lint commit`](docs/commit.md)
 

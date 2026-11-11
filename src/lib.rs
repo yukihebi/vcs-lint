@@ -4,19 +4,33 @@
 use std::ffi::OsString;
 
 use cli::{ClapCommand, Parsed};
+use env::Env;
 use git::Git;
 pub use report::RunStatus;
+use version::Version;
 
 mod cli;
+mod env;
 mod git;
 mod lint;
 mod name_set;
 mod report;
 mod resolve;
+mod version;
 
-/// Runs the command line `args`, which exclude the program name, without
-/// printing anything; [`RunStatus::report`] prints how it ends.
-pub fn run(args: Vec<OsString>) -> RunStatus {
+/// Runs the command line `args`, which exclude the program name, with the
+/// environment variables `vars`, without printing anything;
+/// [`RunStatus::report`] prints how it ends.
+///
+/// The required version is checked before anything else, as an older
+/// vcs-lint may not know the options the command line uses.
+pub fn run(args: Vec<OsString>, vars: impl IntoIterator<Item = (OsString, OsString)>) -> RunStatus {
+    let env = Env::from_vars(vars);
+    if let Some(required) = &env.required_version
+        && let Err(err) = Version::CURRENT.require(required)
+    {
+        return RunStatus::RequiredVersionError(err);
+    }
     match Parsed::parse(args) {
         Ok(Parsed::Command(command)) => run_command(command),
         Ok(Parsed::Info(info)) => RunStatus::Info(info),

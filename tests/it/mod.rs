@@ -12,10 +12,12 @@ mod branch;
 mod cli;
 mod commit;
 mod list_dir;
+mod required_version;
 mod workdir;
 
 use std::{
-    ffi::OsStr,
+    env,
+    ffi::{OsStr, OsString},
     fmt::{self, Display, Formatter},
     io::Write,
     process::Command,
@@ -34,9 +36,25 @@ impl Run {
     /// Runs `args` in the current directory, where relative paths resolve the
     /// same way for the library and the binary.
     fn new(args: &[impl AsRef<OsStr>]) -> Self {
-        let output = BinaryOutput::of(Command::new(BinaryOutput::PROGRAM).args(args));
+        Self::with_vars(args, &[])
+    }
+
+    /// Runs `args` as [`Run::new`] does, with `vars` as the only environment
+    /// variables of vcs-lint set.
+    fn with_vars(args: &[impl AsRef<OsStr>], vars: &[(&str, &str)]) -> Self {
+        let mut command = Command::new(BinaryOutput::PROGRAM);
+        for (name, _) in env::vars_os() {
+            if name.to_string_lossy().starts_with("VCS_LINT_") {
+                command.env_remove(name);
+            }
+        }
+        let output = BinaryOutput::of(command.args(args).envs(vars.iter().copied()));
         Self {
-            status: vcs_lint::run(args.iter().map(|arg| arg.as_ref().to_owned()).collect()),
+            status: vcs_lint::run(
+                args.iter().map(|arg| arg.as_ref().to_owned()).collect(),
+                vars.iter()
+                    .map(|&(name, value)| (OsString::from(name), OsString::from(value))),
+            ),
             output,
         }
     }
