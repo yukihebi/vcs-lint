@@ -16,6 +16,8 @@ use config_file::ConfigFileError;
 use history::{HistoryLintError, HistoryResolveError};
 use version::RequiredVersionError;
 
+use crate::cli::SeverityClapLevel;
+
 /// How a run ends, before anything is printed.
 #[derive(Debug)]
 #[must_use = "nothing is printed until the status is reported"]
@@ -58,6 +60,15 @@ pub enum RunStatus {
     HistoryLintWarning(HistoryLintError),
 }
 
+/// The statuses a run of one command can end with once its command line is
+/// read: why what it refers to cannot be resolved, and a violation reported as
+/// an error or as a warning.
+pub struct CommandStatuses<R, L> {
+    resolve_error: fn(R) -> RunStatus,
+    lint_error: fn(L) -> RunStatus,
+    lint_warning: fn(L) -> RunStatus,
+}
+
 impl RunStatus {
     /// Prints how the run ends and returns its exit status.
     pub fn report(self) -> ExitCode {
@@ -94,4 +105,44 @@ impl RunStatus {
         eprintln!("warning: {err}");
         ExitCode::SUCCESS
     }
+}
+
+impl<R, L> CommandStatuses<R, L> {
+    /// How the run ends with `linted`, the result of linting what the command
+    /// refers to or why it cannot be resolved, a violation being reported as
+    /// `severity` says.
+    pub fn end(&self, linted: Result<Result<(), L>, R>, severity: SeverityClapLevel) -> RunStatus {
+        match linted {
+            Ok(Ok(())) => RunStatus::Success,
+            Ok(Err(err)) => match severity {
+                SeverityClapLevel::Error => (self.lint_error)(err),
+                SeverityClapLevel::Warning => (self.lint_warning)(err),
+            },
+            Err(err) => (self.resolve_error)(err),
+        }
+    }
+}
+
+impl CommandStatuses<BranchResolveError, BranchLintError> {
+    pub const BRANCH: Self = Self {
+        resolve_error: RunStatus::BranchResolveError,
+        lint_error: RunStatus::BranchLintError,
+        lint_warning: RunStatus::BranchLintWarning,
+    };
+}
+
+impl CommandStatuses<CommitResolveError, CommitLintError> {
+    pub const COMMIT: Self = Self {
+        resolve_error: RunStatus::CommitResolveError,
+        lint_error: RunStatus::CommitLintError,
+        lint_warning: RunStatus::CommitLintWarning,
+    };
+}
+
+impl CommandStatuses<HistoryResolveError, HistoryLintError> {
+    pub const HISTORY: Self = Self {
+        resolve_error: RunStatus::HistoryResolveError,
+        lint_error: RunStatus::HistoryLintError,
+        lint_warning: RunStatus::HistoryLintWarning,
+    };
 }

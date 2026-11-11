@@ -4,10 +4,11 @@
 
 use std::ffi::OsString;
 
-use cli::{ClapCommand, Parsed, SeverityClapLevel};
+use cli::{ClapCommand, Parsed};
 use config_file::ConfigFile;
 use env::Env;
 use git::Git;
+use report::CommandStatuses;
 pub use report::RunStatus;
 use version::Version;
 
@@ -62,47 +63,23 @@ fn run_parsed(parsed: Result<Parsed, clap::Error>) -> RunStatus {
 fn run_command(command: ClapCommand) -> RunStatus {
     let severity = command.severity();
     match command {
-        ClapCommand::Branch(args) => match args.into_raw_config().resolve(&Git) {
-            Ok((target, rules)) => linted(
-                severity,
-                rules.lint(&target),
-                RunStatus::BranchLintError,
-                RunStatus::BranchLintWarning,
-            ),
-            Err(err) => RunStatus::BranchResolveError(err),
-        },
-        ClapCommand::Commit(args) => match args.into_raw_config().resolve(&Git) {
-            Ok((target, rules)) => linted(
-                severity,
-                rules.lint(&target),
-                RunStatus::CommitLintError,
-                RunStatus::CommitLintWarning,
-            ),
-            Err(err) => RunStatus::CommitResolveError(err),
-        },
-        ClapCommand::History(args) => match args.into_raw_config().resolve(&Git) {
-            Ok((target, rules)) => linted(
-                severity,
-                rules.lint(&target),
-                RunStatus::HistoryLintError,
-                RunStatus::HistoryLintWarning,
-            ),
-            Err(err) => RunStatus::HistoryResolveError(err),
-        },
-    }
-}
-
-/// How a run that linted ends with `result`, a violation being reported as
-/// `error` or as `warning` as `severity` says.
-fn linted<E>(
-    severity: SeverityClapLevel,
-    result: Result<(), E>,
-    error: fn(E) -> RunStatus,
-    warning: fn(E) -> RunStatus,
-) -> RunStatus {
-    match (result, severity) {
-        (Ok(()), _) => RunStatus::Success,
-        (Err(err), SeverityClapLevel::Error) => error(err),
-        (Err(err), SeverityClapLevel::Warning) => warning(err),
+        ClapCommand::Branch(args) => CommandStatuses::BRANCH.end(
+            args.into_raw_config()
+                .resolve(&Git)
+                .map(|(target, rules)| rules.lint(&target)),
+            severity,
+        ),
+        ClapCommand::Commit(args) => CommandStatuses::COMMIT.end(
+            args.into_raw_config()
+                .resolve(&Git)
+                .map(|(target, rules)| rules.lint(&target)),
+            severity,
+        ),
+        ClapCommand::History(args) => CommandStatuses::HISTORY.end(
+            args.into_raw_config()
+                .resolve(&Git)
+                .map(|(target, rules)| rules.lint(&target)),
+            severity,
+        ),
     }
 }
