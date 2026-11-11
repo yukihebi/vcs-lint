@@ -62,6 +62,9 @@ can also run in a `pre-push` hook or in CI.
   [protected branches](#definitions). A [list option](cli.md#list-options).
 - `--detached <RULE>`: whether a [detached HEAD](#detached-head) passes,
   `allow` or `deny`. `allow` when not given.
+- `--config <PATH>`: reads options from a
+  [config file](cli.md#config-file). The file named by
+  [`VCS_LINT_CONFIG`](cli.md#vcs_lint_config) when not given.
 - `-h`, `--help`: print help.
 
 ## Current branch

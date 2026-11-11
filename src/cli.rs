@@ -6,13 +6,19 @@
 //! dropped. A list option comes with an option adding the names of the
 //! subdirectories of directories to it and an option excluding values from it,
 //! named after the list so that help shows them together.
+//!
+//! The options of a config file are parsed as part of the command line, given
+//! right after the command name.
 
 pub mod branch;
 pub mod commit;
 
-use std::{ffi::OsString, path::PathBuf};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 
 use crate::resolve::{DEFAULT_TYPES, list::ListRawValues};
 use branch::BranchClapArgs;
@@ -21,7 +27,7 @@ use commit::CommitClapArgs;
 /// A command line that follows the syntax of the commands.
 #[derive(Debug)]
 pub enum Parsed {
-    Command(ClapCommand),
+    Command(Box<ClapCommand>),
     /// Help or the version, which clap gives as an error to be printed.
     Info(clap::Error),
 }
@@ -31,10 +37,22 @@ impl Parsed {
     /// error.
     pub fn parse(args: Vec<OsString>) -> Result<Self, clap::Error> {
         match Cli::try_parse_from(args) {
-            Ok(cli) => Ok(Self::Command(cli.command)),
+            Ok(cli) => Ok(Self::Command(Box::new(cli.command))),
             Err(err) if err.use_stderr() => Err(err),
             Err(info) => Ok(Self::Info(info)),
         }
+    }
+
+    /// Parses `args` as [`Parsed::parse`] does, with `leading` given right
+    /// after their first argument, the command name of a command line that
+    /// parses into a [`Parsed::Command`].
+    pub fn parse_with_leading(
+        args: Vec<OsString>,
+        leading: Vec<OsString>,
+    ) -> Result<Self, clap::Error> {
+        let mut args = args.into_iter();
+        let name = args.next();
+        Self::parse(name.into_iter().chain(leading).chain(args).collect())
     }
 }
 
@@ -57,6 +75,83 @@ pub enum ClapCommand {
     Branch(BranchClapArgs),
     /// Lint the header of a commit message file
     Commit(CommitClapArgs),
+}
+
+impl ClapCommand {
+    pub fn name(&self) -> CommandName {
+        match self {
+            Self::Branch(_) => CommandName::Branch,
+            Self::Commit(_) => CommandName::Commit,
+        }
+    }
+
+    /// The config file given with `--config`.
+    pub fn config(&self) -> Option<&Path> {
+        let config = match self {
+            Self::Branch(args) => &args.config,
+            Self::Commit(args) => &args.config,
+        };
+        config.path.as_deref()
+    }
+}
+
+/// A command, named as on the command line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CommandName {
+    Branch,
+    Commit,
+}
+
+impl CommandName {
+    pub const ALL: [Self; 2] = [Self::Branch, Self::Commit];
+
+    /// The command named `name`, if any.
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|command| command.as_str() == name)
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Branch => "branch",
+            Self::Commit => "commit",
+        }
+    }
+
+    /// The options of the command that have a long name, `--help` aside.
+    pub fn options(self) -> Vec<CommandOption> {
+        let cli = Cli::command();
+        let command = cli
+            .find_subcommand(self.as_str())
+            .expect("every command is a subcommand");
+        command
+            .get_arguments()
+            .filter_map(|arg| {
+                Some(CommandOption {
+                    name: arg.get_long()?.to_owned(),
+                    is_list: matches!(arg.get_action(), ArgAction::Append),
+                })
+            })
+            .collect()
+    }
+}
+
+/// An option of a command, by its long name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandOption {
+    pub name: String,
+    /// Whether each flag of the option adds to its values, rather than the
+    /// option being given once.
+    pub is_list: bool,
+}
+
+#[derive(Debug, Args)]
+struct ConfigClapArgs {
+    /// TOML file whose options are read before the command line;
+    /// `VCS_LINT_CONFIG` when omitted
+    #[arg(long = "config", value_name = "PATH")]
+    path: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]

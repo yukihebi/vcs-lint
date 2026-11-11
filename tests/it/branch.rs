@@ -237,6 +237,9 @@ fn prints_help() {
               - allow: A detached HEAD passes
               - deny:  A detached HEAD fails
 
+          --config <PATH>
+              TOML file whose options are read before the command line; `VCS_LINT_CONFIG` when omitted
+
       -h, --help
               Print help (see a summary with '-h')
     --- stderr

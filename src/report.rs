@@ -2,6 +2,7 @@
 
 pub mod branch;
 pub mod commit;
+pub mod config_file;
 pub mod git;
 pub mod list;
 pub mod version;
@@ -10,6 +11,7 @@ use std::{fmt::Display, process::ExitCode};
 
 use branch::{BranchLintError, BranchResolveError};
 use commit::{CommitLintError, CommitResolveError};
+use config_file::ConfigFileError;
 use version::RequiredVersionError;
 
 /// How a run ends, before anything is printed.
@@ -24,9 +26,11 @@ pub enum RunStatus {
     /// The running vcs-lint does not meet the required version, so the
     /// command line is not read. Exits with `4`.
     RequiredVersionError(RequiredVersionError),
-    /// The command line does not follow the syntax of the commands. Exits
-    /// with `3`.
+    /// The command line, with the options read from the config file, does not
+    /// follow the syntax of the commands. Exits with `3`.
     SyntaxError(clap::Error),
+    /// The config file cannot be read, so nothing is linted. Exits with `2`.
+    ConfigFileError(ConfigFileError),
     /// The rules or the branch to lint cannot be resolved, so nothing is
     /// linted. Exits with `2`.
     BranchResolveError(BranchResolveError),
@@ -53,6 +57,7 @@ impl RunStatus {
                 let _ = err.print();
                 ExitCode::from(3)
             }
+            Self::ConfigFileError(err) => Self::fail(err, 2),
             Self::BranchResolveError(err) => Self::fail(err, 2),
             Self::CommitResolveError(err) => Self::fail(err, 2),
             Self::BranchLintError(err) => Self::fail(err, 1),

@@ -14,6 +14,7 @@ strip = true
 clap = { version = "~4.6", features = ["derive"] }
 derive_more = { version = "~2.1", features = ["display"] }
 regex = "~1.13"
+toml = { version = "~1.2", default-features = false, features = ["std", "parse", "serde", "preserve_order"] }
 
 [dev-dependencies]
 insta = "~1.49"
